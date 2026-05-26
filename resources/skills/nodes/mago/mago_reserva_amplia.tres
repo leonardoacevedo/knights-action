@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_m_reserva_amplia"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 5
+mode = 0
+amount = 20.0
+
+[sub_resource type="Resource" id="eff_2"]
+script = ExtResource("2_skilleffect")
+stat = 6
+mode = 1
+amount = 0.10
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"mago_reserva_amplia"
+display_name = "Reserva Amplia"
+description = "El canal se ensancha. +20 Furia máxima y +10% Furia ganada por golpe."
+branch = 1
+point_cost = 1
+prerequisites = [&"mago_deposito_furia"]
+tier = 2
+effects = [SubResource("eff_1"), SubResource("eff_2")]

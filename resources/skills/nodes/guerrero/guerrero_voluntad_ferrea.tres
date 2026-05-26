@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_g_voluntad_ferrea"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 4
+mode = 1
+amount = 0.10
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"guerrero_voluntad_ferrea"
+display_name = "Voluntad Férrea"
+description = "La mente domina al cuerpo. Cada golpe recibido duele menos. -10% daño recibido (bonus de defensa %)."
+branch = 0
+point_cost = 1
+prerequisites = [&"guerrero_cuerpo_forjado", &"guerrero_piel_dura"]
+tier = 3
+effects = [SubResource("eff_1")]

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_m_poder_elemental"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 10
+mode = 1
+amount = 0.12
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"mago_poder_elemental"
+display_name = "Poder Elemental"
+description = "El triángulo elemental se inclina a tu favor. +12% daño elemental."
+branch = 1
+point_cost = 1
+prerequisites = [&"mago_toque_elemental"]
+tier = 2
+effects = [SubResource("eff_1")]

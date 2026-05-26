@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CraftRecipe" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/craft_recipe.gd" id="1_recipe"]
+[ext_resource type="Script" path="res://scripts/data/craft_recipe_input.gd" id="2_input"]
+[ext_resource type="Script" path="res://scripts/data/material_data.gd" id="3_matdata"]
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="4_itemdata"]
+[ext_resource type="Resource" path="res://resources/materials/hierba_antigua.tres" id="5_hierba"]
+[ext_resource type="Resource" path="res://resources/materials/savia_resonante.tres" id="6_savia"]
+[ext_resource type="Resource" path="res://resources/items/armor/cota_cuero.tres" id="7_output"]
+
+[sub_resource type="Resource" id="Input_hierba"]
+script = ExtResource("2_input")
+material = ExtResource("5_hierba")
+count = 8
+
+[sub_resource type="Resource" id="Input_savia"]
+script = ExtResource("2_input")
+material = ExtResource("6_savia")
+count = 2
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_cota_cuero"
+display_name = "Forjar Cota de Cuero"
+description = "Cuero curtido con extractos del Valle. Protección básica para cualquier guerrero que empiece."
+inputs = [SubResource("Input_hierba"), SubResource("Input_savia")]
+output_item = ExtResource("7_output")
+gold_cost = 0
+required_player_level = 1

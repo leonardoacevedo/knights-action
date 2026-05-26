@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://dxu245wunwwii"]
+
+[ext_resource type="Script" path="res://scripts/ui/loot_card_screen.gd" id="1_loot"]
+
+[node name="LootCardScreen" type="CanvasLayer"]
+layer = 27
+script = ExtResource("1_loot")

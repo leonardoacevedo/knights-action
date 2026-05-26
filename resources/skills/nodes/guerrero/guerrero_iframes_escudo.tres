@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_g_iframes_escudo"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 11
+mode = 1
+amount = 0.15
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"guerrero_iframes_escudo"
+display_name = "Bloqueo Activo"
+description = "El momento del bloqueo abre una ventana de invencibilidad. +15% duración de i-frames."
+branch = 0
+point_cost = 1
+prerequisites = [&"guerrero_carga_extra", &"guerrero_voluntad_ferrea"]
+tier = 4
+effects = [SubResource("eff_1")]

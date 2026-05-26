@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_a_flujo_perpetuo"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 9
+mode = 1
+amount = 0.10
+
+[sub_resource type="Resource" id="eff_2"]
+script = ExtResource("2_skilleffect")
+stat = 8
+mode = 1
+amount = -0.20
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"agil_flujo_perpetuo"
+display_name = "Flujo Perpetuo"
+description = "El movimiento nunca se detiene. +10% velocidad y -20% cooldown dash adicional."
+branch = 2
+point_cost = 1
+prerequisites = [&"agil_torbellino", &"agil_cazador_implacable"]
+tier = 4
+effects = [SubResource("eff_1"), SubResource("eff_2")]

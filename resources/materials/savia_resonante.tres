@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3 uid="uid://mat_savia_resonante"]
+
+[ext_resource type="Script" path="res://scripts/data/material_data.gd" id="1_matdata"]
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="2_itemdata"]
+
+[resource]
+script = ExtResource("1_matdata")
+id = &"savia_resonante"
+display_name = "Savia Resonante"
+description = "La sangre lenta de los árboles que sobrevivieron al derrumbe. Condensa siglos en cada gota."
+rarity = 1
+max_stack = 99

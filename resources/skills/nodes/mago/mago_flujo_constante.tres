@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_m_flujo_constante"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 6
+mode = 1
+amount = 0.20
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"mago_flujo_constante"
+display_name = "Flujo Constante"
+description = "Atacar es respirar. +20% Furia ganada por golpe."
+branch = 1
+point_cost = 1
+prerequisites = [&"mago_golpe_canalizado"]
+tier = 2
+effects = [SubResource("eff_1")]

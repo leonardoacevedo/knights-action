@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/projectile_arrow.tscn" id="2_proj"]
+
+[node name="EnemyArcher" instance=ExtResource("1_base")]
+enemy_class = 2
+projectile_scene = ExtResource("2_proj")
+
+[node name="StickFigure" parent="." index="1"]
+body_color = Color(0.25, 0.55, 0.25, 1)

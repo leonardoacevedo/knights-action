@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://dafmr4xtp2k8n"]
+
+[ext_resource type="Script" path="res://scripts/ui/refinement_screen.gd" id="1_ref"]
+
+[node name="RefinementScreen" type="CanvasLayer"]
+layer = 25
+script = ExtResource("1_ref")

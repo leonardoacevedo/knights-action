@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3 uid="uid://mat_piedra_resonancia"]
+
+[ext_resource type="Script" path="res://scripts/data/material_data.gd" id="1_matdata"]
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="2_itemdata"]
+
+[resource]
+script = ExtResource("1_matdata")
+id = &"piedra_resonancia"
+display_name = "Piedra de Resonancia"
+description = "Un fragmento mineral que vibra a frecuencias imperceptibles. Al contacto con metal forjado, se asienta en su estructura y la empuja más allá de sus límites naturales."
+rarity = 0
+max_stack = 999

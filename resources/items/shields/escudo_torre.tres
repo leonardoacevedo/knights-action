@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://scripts/data/affix_data.gd" id="2_affixdata"]
+
+[sub_resource type="Resource" id="Affix_def"]
+script = ExtResource("2_affixdata")
+stat_id = &"defense"
+display_name = "Defensa"
+value = 10
+
+[resource]
+script = ExtResource("1_itemdata")
+id = &"escudo_torre"
+display_name = "Escudo Torre"
+description = "Te tapa de pies a cabeza. Lento de cargar, dos cargas de bloqueo activo."
+slot = 2
+rarity = 2
+element = 0
+stat_main = 18
+refinement_level = 0
+affixes = [SubResource("Affix_def")]
+visual_type = 5

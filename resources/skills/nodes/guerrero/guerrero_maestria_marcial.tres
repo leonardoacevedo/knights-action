@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_g_maestria_marcial"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 2
+mode = 1
+amount = 0.10
+
+[sub_resource type="Resource" id="eff_2"]
+script = ExtResource("2_skilleffect")
+stat = 1
+mode = 0
+amount = 5.0
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"guerrero_maestria_marcial"
+display_name = "Maestría Marcial"
+description = "Años de combate refinaron cada swing. +10% daño físico y +5 daño flat."
+branch = 0
+point_cost = 1
+prerequisites = [&"guerrero_fuerza_bruta", &"guerrero_golpe_certero"]
+tier = 3
+effects = [SubResource("eff_1"), SubResource("eff_2")]

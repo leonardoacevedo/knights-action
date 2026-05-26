@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
+
+[node name="EnemyTank" instance=ExtResource("1_base")]
+enemy_class = 1
+
+[node name="StickFigure" parent="." index="1"]
+body_color = Color(0.45, 0.35, 0.25, 1)

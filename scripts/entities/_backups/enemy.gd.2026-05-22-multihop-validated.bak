@@ -1,0 +1,563 @@
+extends CharacterBody2D
+class_name Enemy
+
+## Enemy básico R1 con state machine inline. GDD §7.3 R1:
+## movimiento simple, ataques telegrafiados ≥0.7s, sin bloqueo.
+## SM: IDLE → CHASE → TELEGRAPH (0.7s) → ATTACK → RECOVERY → IDLE.
+
+## DEBUG: poner true para ver prints en Output panel de Godot.
+## Throttling: imprime cuando cambia algo relevante (dirección, ceiling, salto).
+const DEBUG_ENABLED := true
+
+enum State { IDLE, CHASE, TELEGRAPH, ATTACK, RECOVERY, HURT, DEAD }
+
+const SPEED := 400.0              # igual al player: paridad base requerida por Leo
+const DETECT_RANGE := 500.0       # doble del original para más persecución temprana
+const ATTACK_RANGE := 60.0
+
+const TELEGRAPH_SECONDS := 0.7
+const ATTACK_DURATION := 0.25
+const ATTACK_ACTIVE_START := 0.05
+const ATTACK_ACTIVE_END := 0.15
+const RECOVERY_SECONDS := 0.6
+
+# Salto reactivo: si target está arriba y cerca horizontalmente.
+const JUMP_VELOCITY := -850.0                 # igual al player
+const JUMP_COOLDOWN := 0.6
+const JUMP_TRIGGER_HEIGHT_DIFF := 40.0        # target Y al menos N px más arriba
+const JUMP_TRIGGER_MAX_DISTANCE := 250.0      # alcance horizontal real con SPEED=400 + margen antes de entrar al rango ceiling lateral
+const CEILING_CHECK_DISTANCE := 100.0         # px arriba de la cabeza para detectar techo
+const CEILING_CHECK_SIDE_OFFSET := 100.0      # margen lateral: el enemy DEBE estar a >100px del borde de la plataforma antes de saltar para no chocar con la esquina lateral
+
+# Caída desde plataforma: si target está abajo y enemy sobre plataforma.
+const FALLOFF_CHECK_LATERAL := 30.0           # px lateral del raycast hacia abajo. Corto para detectar SOLO el borde de la plataforma actual, NO plataformas vecinas
+const FALLOFF_CHECK_DEPTH := 50.0             # px hacia abajo del raycast lateral
+const CHASE_DIRECTION_HYSTERESIS := 30.0      # tolerancia anti-oscilación cuando no hay borde detectado
+
+# Multi-hop: si target está más alto que MAX_JUMP_HEIGHT, usar plataforma intermedia como escalón.
+const MAX_JUMP_HEIGHT := 145.0                # altura alcanzable con JUMP_VELOCITY actual
+const INTERMEDIATE_CHECK_INTERVAL := 0.5      # cada N segundos refresca cálculo de plataforma intermedia
+# Histéresis para evitar oscilación entre DIRECT e INTERMEDIATE cuando dy_above está al filo:
+const MULTI_HOP_ACTIVATE_DY := MAX_JUMP_HEIGHT * 0.95     # 137.75 → si dy > 138, activa multi-hop
+const MULTI_HOP_DEACTIVATE_DY := MAX_JUMP_HEIGHT * 0.80   # 116 → si dy < 116, vuelve a DIRECT
+# También activar multi-hop si target está fuera del alcance HORIZONTAL del salto.
+const MULTI_HOP_ACTIVATE_DX := JUMP_TRIGGER_MAX_DISTANCE * 1.05  # 263 → si dx > 263, multi-hop
+const MULTI_HOP_DEACTIVATE_DX := JUMP_TRIGGER_MAX_DISTANCE * 0.80 # 200 → si dx < 200, vuelve a DIRECT
+
+@export var team: int = 2
+@export var target_path: NodePath  ## Asignar desde world.tscn al Player.
+
+@onready var sprite: StickFigure = $StickFigure
+@onready var health: HealthComponent = $HealthComponent
+@onready var hitbox: HitboxComponent = $Hitbox
+@onready var hurtbox: HurtboxComponent = $Hurtbox
+
+var state: State = State.IDLE
+var current_facing: int = 1
+var _target: Node2D = null
+
+var _gravity: float = ProjectSettings.get_setting("physics/2d/default_gravity")
+var _state_timer: float = 0.0
+var _jump_cooldown_timer: float = 0.0
+
+# Cache de plataforma intermedia para multi-hop (refrescada cada INTERMEDIATE_CHECK_INTERVAL).
+var _intermediate_platform: Node2D = null
+var _intermediate_check_timer: float = 0.0
+
+# Estado de histéresis del multi-hop: se activa con threshold alto, se desactiva con bajo.
+var _multi_hop_active: bool = false
+
+# Multiplicador de velocity.x en aire. Reducido durante saltos laterales para que la trayectoria
+# parabólica suba lo suficiente antes de cruzar el lado de la plataforma destino.
+var _air_speed_factor: float = 1.0
+
+# Debug: cache para imprimir solo cuando cambia algo relevante.
+var _dbg_last_facing: int = 0
+var _dbg_last_ceiling: bool = false
+var _dbg_last_intermediate_name: String = ""
+
+
+func _ready() -> void:
+	hurtbox.health_component = health
+	hurtbox.team = team
+	hitbox.team = team
+	hitbox.set_active(false)
+
+	health.died.connect(_on_died)
+	health.damaged.connect(_on_damaged)
+
+	# Resolución del target: primero NodePath explícito, después fallback por grupo.
+	if target_path != NodePath():
+		_target = get_node_or_null(target_path)
+	if _target == null:
+		_target = get_tree().get_first_node_in_group("player")
+	if _target == null:
+		push_warning("Enemy sin target. No Player en grupo 'player' ni en target_path.")
+
+
+func _physics_process(delta: float) -> void:
+	if state == State.DEAD:
+		_apply_gravity(delta)
+		move_and_slide()
+		return
+
+	if _jump_cooldown_timer > 0.0:
+		_jump_cooldown_timer -= delta
+	if _intermediate_check_timer > 0.0:
+		_intermediate_check_timer -= delta
+
+	_apply_gravity(delta)
+	if DEBUG_ENABLED and state == State.CHASE:
+		_dbg_tick_ceiling()
+	_tick_state(delta)
+	move_and_slide()
+
+
+func _apply_gravity(delta: float) -> void:
+	if not is_on_floor():
+		velocity.y += _gravity * 2.5 * delta
+
+
+func _tick_state(delta: float) -> void:
+	_state_timer += delta
+
+	match state:
+		State.IDLE:
+			velocity.x = 0.0
+			sprite.set_state(StickFigure.State.IDLE)
+			if _distance_to_target() < DETECT_RANGE:
+				# Inicializar facing hacia el target al entrar a CHASE.
+				# Esto evita que el enemy empiece persiguiendo al lado opuesto del target.
+				if _target != null:
+					var initial_dx: float = _target.global_position.x - global_position.x
+					if abs(initial_dx) > 5.0:
+						_apply_facing(int(sign(initial_dx)))
+				_change_state(State.CHASE)
+
+		State.CHASE:
+			var dist: float = _distance_to_target()
+			if dist > DETECT_RANGE * 1.5:
+				_change_state(State.IDLE)
+				return
+			if dist < ATTACK_RANGE and _target_at_similar_height():
+				_change_state(State.TELEGRAPH)
+				return
+
+			# Reset del factor de velocidad en aire cuando aterrizamos.
+			if is_on_floor():
+				_air_speed_factor = 1.0
+				# Solo recalcular dirección si estamos en piso. En aire,
+				# el facing se mantiene como estaba al despegar (evita oscilación
+				# que rompe la trayectoria parabólica del salto).
+				_apply_facing(_decide_chase_direction())
+
+			# En aire usa _air_speed_factor (reducido si fue salto lateral, para no chocar lado).
+			var speed_now: float = SPEED if is_on_floor() else SPEED * _air_speed_factor
+			velocity.x = current_facing * speed_now
+			sprite.set_state(StickFigure.State.JUMP if not is_on_floor() else StickFigure.State.WALK)
+			_try_reactive_jump()
+
+		State.TELEGRAPH:
+			velocity.x = 0.0
+			# Parpadeo rojo durante telegraph para señalizar.
+			sprite.flash_hurt(0.1)
+			if _state_timer >= TELEGRAPH_SECONDS:
+				_change_state(State.ATTACK)
+
+		State.ATTACK:
+			velocity.x = 0.0
+			sprite.set_state(StickFigure.State.ATTACK)
+			# Hitbox activo solo en ventana corta.
+			var should_active: bool = _state_timer >= ATTACK_ACTIVE_START and _state_timer <= ATTACK_ACTIVE_END
+			if hitbox.monitoring != should_active:
+				hitbox.set_active(should_active)
+			if _state_timer >= ATTACK_DURATION:
+				hitbox.set_active(false)
+				_change_state(State.RECOVERY)
+
+		State.RECOVERY:
+			velocity.x = 0.0
+			sprite.set_state(StickFigure.State.IDLE)
+			if _state_timer >= RECOVERY_SECONDS:
+				_change_state(State.IDLE)
+
+
+func _change_state(new_state: State) -> void:
+	state = new_state
+	_state_timer = 0.0
+
+
+func _distance_to_target() -> float:
+	if _target == null:
+		return 99999.0
+	return global_position.distance_to(_target.global_position)
+
+
+func _face_target() -> void:
+	if _target == null:
+		return
+	var dir: float = _target.global_position.x - global_position.x
+	if abs(dir) > 5.0:
+		current_facing = sign(dir)
+		sprite.set_facing(current_facing)
+		hitbox.position.x = abs(hitbox.position.x) * current_facing
+
+
+func _on_damaged(_amount: int) -> void:
+	sprite.flash_hurt(0.15)
+
+
+func _on_died() -> void:
+	state = State.DEAD
+	sprite.set_state(StickFigure.State.DEAD)
+	hitbox.set_active(false)
+	# Caer al suelo si está en aire; después sin lógica.
+
+
+func _try_reactive_jump() -> void:
+	# Salto si: en piso, fuera de cooldown, effective target arriba y cerca horizontalmente.
+	# Usa effective target para multi-hop (salta hacia plataforma intermedia, no target final).
+	if _target == null:
+		return
+	if not is_on_floor():
+		return
+	if _jump_cooldown_timer > 0.0:
+		return
+	var effective: Vector2 = _get_effective_target_position()
+	var dx: float = abs(effective.x - global_position.x)
+	var dy: float = global_position.y - effective.y
+
+	# GAP JUMP CHECK PRIMERO: target a nivel similar + cerca del borde + dx mediano.
+	# Threshold de dx más permisivo (hasta 1.5x del regular) porque el salto cubre más
+	# distancia cuando es lateral con misma altura inicial.
+	if abs(dy) < 50.0 and dx > 100.0 and dx <= JUMP_TRIGGER_MAX_DISTANCE * 1.5:
+		var near_edge: int = _get_falloff_direction()
+		var target_dir: int = int(sign(effective.x - global_position.x))
+		if near_edge != 0 and near_edge == target_dir:
+			velocity.y = JUMP_VELOCITY
+			velocity.x = 0.0
+			_jump_cooldown_timer = JUMP_COOLDOWN
+			_air_speed_factor = 1.0
+			if DEBUG_ENABLED:
+				_dbg("JUMP_GAP", "lateral gap, dx=%.0f dy=%.1f edge_dir=%d" % [dx, dy, near_edge])
+			return
+
+	# Regular jump checks.
+	if dx > JUMP_TRIGGER_MAX_DISTANCE:
+		if DEBUG_ENABLED:
+			_dbg("no_jump", "dx=%.1f > %.0f" % [dx, JUMP_TRIGGER_MAX_DISTANCE])
+		return
+	if dy < JUMP_TRIGGER_HEIGHT_DIFF:
+		if DEBUG_ENABLED:
+			_dbg("no_jump", "dy=%.1f facing=%d vel=(%.0f,%.0f) onfloor=%s factor=%.1f" \
+				% [dy, current_facing, velocity.x, velocity.y, str(is_on_floor()), _air_speed_factor])
+		return
+	# Salto físicamente imposible: dy mayor que la altura máxima alcanzable del salto.
+	# Sin este filtro, el enemy intenta saltos infinitos a plataformas inalcanzables.
+	if dy > MAX_JUMP_HEIGHT * 1.05:
+		if DEBUG_ENABLED:
+			_dbg("no_jump", "dy=%.1f > MAX_JUMP_HEIGHT*1.05 (físicamente imposible)" % dy)
+		return
+	# Ceiling check: si hay techo encima, normalmente NO saltar.
+	# Excepción: si el effective target ES la plataforma encima (alcanzable directo Y
+	# dx lateral suficiente para que el salto diagonal aterrize sobre ella sin chocar con bottom).
+	if _has_ceiling_above():
+		var target_within_jump_reach: bool = effective.y >= global_position.y - MAX_JUMP_HEIGHT \
+			and effective.y < global_position.y - JUMP_TRIGGER_HEIGHT_DIFF
+		# dx > 50 garantiza salto diagonal (no vertical bajo el centro de la plataforma).
+		if not target_within_jump_reach or dx < 50.0:
+			if DEBUG_ENABLED:
+				_dbg("no_jump", "has_ceiling_above (target_reach=%s dx=%.0f)" % [str(target_within_jump_reach), dx])
+			return
+	velocity.y = JUMP_VELOCITY
+	velocity.x = 0.0                       # salto vertical limpio
+	_jump_cooldown_timer = JUMP_COOLDOWN
+	# Air speed factor por tipo de salto:
+	# - dx ≤ 30: target casi directamente encima → factor 0.0 (salto vertical puro)
+	# - dx ≤ 100: salto medio lateral → factor 0.5 (sube vertical antes de avanzar)
+	# - dx > 100: salto lateral largo → factor 1.0 (vel.x full para cubrir distancia)
+	if dx <= 30.0:
+		_air_speed_factor = 0.0
+	elif dx <= 100.0:
+		_air_speed_factor = 0.5
+	else:
+		_air_speed_factor = 1.0
+	if DEBUG_ENABLED:
+		_dbg("JUMP!", "from=(%.0f,%.0f) target=(%.0f,%.0f) dx=%.0f dy=%.0f air_factor=%.1f" \
+			% [global_position.x, global_position.y, effective.x, effective.y, dx, dy, _air_speed_factor])
+
+
+func _has_ceiling_above() -> bool:
+	# 3 raycasts verticales: centro + ambos laterales (margen para esquinas).
+	# Si cualquiera detecta techo, NO es seguro saltar (chocaría con esquina).
+	var space_state := get_world_2d().direct_space_state
+	var head_y: float = global_position.y - 55.0
+	var offsets: Array[float] = [0.0, -CEILING_CHECK_SIDE_OFFSET, CEILING_CHECK_SIDE_OFFSET]
+
+	for off in offsets:
+		var from: Vector2 = Vector2(global_position.x + off, head_y)
+		var to: Vector2 = from + Vector2(0, -CEILING_CHECK_DISTANCE)
+		var query := PhysicsRayQueryParameters2D.create(from, to)
+		query.collision_mask = 0b1  # layer 1 = World
+		query.exclude = [self]
+		if not space_state.intersect_ray(query).is_empty():
+			return true
+	return false
+
+
+func _get_escape_direction_from_ceiling() -> int:
+	# Raycasts VERTICALES en posiciones laterales para detectar de qué lado está la plataforma encima.
+	# Prioridad nueva: si el target está EN la dirección del techo (la plataforma encima coincide
+	# con el destino del enemy), IR hacia él (no escapar). Sino, escape al lado libre.
+	var space_state := get_world_2d().direct_space_state
+	var head_y: float = global_position.y - 55.0
+
+	var left_query := PhysicsRayQueryParameters2D.create(
+		Vector2(global_position.x - 100.0, head_y),
+		Vector2(global_position.x - 100.0, head_y - CEILING_CHECK_DISTANCE)
+	)
+	left_query.collision_mask = 0b1
+	left_query.exclude = [self]
+	var left_blocked: bool = not space_state.intersect_ray(left_query).is_empty()
+
+	var right_query := PhysicsRayQueryParameters2D.create(
+		Vector2(global_position.x + 100.0, head_y),
+		Vector2(global_position.x + 100.0, head_y - CEILING_CHECK_DISTANCE)
+	)
+	right_query.collision_mask = 0b1
+	right_query.exclude = [self]
+	var right_blocked: bool = not space_state.intersect_ray(right_query).is_empty()
+
+	# Prioridad: si el target está del lado del techo detectado, ir HACIA él.
+	if _target != null:
+		var effective: Vector2 = _get_effective_target_position()
+		var dx_to_eff: float = effective.x - global_position.x
+		if abs(dx_to_eff) > 5.0:
+			var target_side: int = int(sign(dx_to_eff))
+			var target_side_blocked: bool = (left_blocked if target_side == -1 else right_blocked)
+			if target_side_blocked:
+				# El techo es del lado del target → ese es el destino, ir hacia él.
+				return target_side
+
+	# Fallback: lado libre (escape clásico).
+	if not left_blocked and right_blocked:
+		return -1
+	if not right_blocked and left_blocked:
+		return 1
+	# Ambos iguales: usar posición del target como tiebreaker.
+	if _target != null:
+		var target_dx: float = _target.global_position.x - global_position.x
+		if abs(target_dx) > 5.0:
+			return int(sign(target_dx))
+	return current_facing
+
+
+func _get_falloff_direction() -> int:
+	# Simétrico de escape: detecta de qué lado hay borde de plataforma sin piso debajo.
+	# Devuelve -1 (caer izquierda), 1 (caer derecha), 0 (sin decisión clara).
+	var space_state := get_world_2d().direct_space_state
+	var feet: Vector2 = global_position + Vector2(0, -2)
+
+	var left_query := PhysicsRayQueryParameters2D.create(
+		feet + Vector2(-FALLOFF_CHECK_LATERAL, 0),
+		feet + Vector2(-FALLOFF_CHECK_LATERAL, FALLOFF_CHECK_DEPTH)
+	)
+	left_query.collision_mask = 0b1
+	left_query.exclude = [self]
+	var left_has_floor: bool = not space_state.intersect_ray(left_query).is_empty()
+
+	var right_query := PhysicsRayQueryParameters2D.create(
+		feet + Vector2(FALLOFF_CHECK_LATERAL, 0),
+		feet + Vector2(FALLOFF_CHECK_LATERAL, FALLOFF_CHECK_DEPTH)
+	)
+	right_query.collision_mask = 0b1
+	right_query.exclude = [self]
+	var right_has_floor: bool = not space_state.intersect_ray(right_query).is_empty()
+
+	if not left_has_floor and right_has_floor:
+		return -1
+	if not right_has_floor and left_has_floor:
+		return 1
+	return 0  # ambos con piso (estamos en medio) o ambos sin piso (estamos en el aire)
+
+
+func _decide_chase_direction() -> int:
+	# Decisión unificada de movimiento horizontal en CHASE, por prioridad:
+	# 1. Target arriba + techo bloqueando → escape al borde exterior (siempre, incluso si target es la plataforma encima)
+	# 2. Target abajo + en plataforma → buscar borde para caer; sin borde, ir hacia target con histéresis
+	# 3. Persecución normal con tolerancia chica
+	if _target == null:
+		return current_facing
+
+	var effective: Vector2 = _get_effective_target_position()
+	var dx: float = effective.x - global_position.x
+	var dy_above: float = global_position.y - effective.y
+	var dy_below: float = -dy_above
+
+	# Target arriba + en piso + techo encima → escape al borde lateral.
+	# Aplica siempre que hay techo (sea el target intermedio o un obstáculo).
+	# El escape vertical lateral con tiebreaker hacia target real lleva al enemy
+	# al lado correcto del borde, donde puede saltar diagonal hacia el destino.
+	if dy_above >= JUMP_TRIGGER_HEIGHT_DIFF and is_on_floor() and _has_ceiling_above():
+		var escape: int = _get_escape_direction_from_ceiling()
+		if escape != 0:
+			if DEBUG_ENABLED and escape != _dbg_last_facing:
+				_dbg("escape", "dir=%d (target effective=(%.0f,%.0f))" % [escape, effective.x, effective.y])
+				_dbg_last_facing = escape
+			return escape
+
+	# Target abajo + en piso:
+	# Orden: fall-off PRIMERO (borde de plataforma actual con raycast corto).
+	# Si no detecta borde (estoy en medio), MANTENER current_facing.
+	# Solo flippear si target está MUY lejos horizontalmente (>100px), no por estar al filo.
+	# Esto fuerza al enemy a comprometerse con una dirección de descenso, sin oscilar.
+	if dy_below >= JUMP_TRIGGER_HEIGHT_DIFF and is_on_floor():
+		var fall: int = _get_falloff_direction()
+		if fall != 0:
+			if DEBUG_ENABLED and fall != _dbg_last_facing:
+				_dbg("falloff", "dir=%d" % fall)
+				_dbg_last_facing = fall
+			return fall
+		# Sin borde detectado. Flippear SOLO si target muy lejos lateralmente (umbral grande, no al filo).
+		if abs(dx) > 100.0:
+			return int(sign(dx))
+		# Histéresis grande: mantener current_facing hasta llegar al borde.
+		return current_facing
+
+	# Persecución horizontal normal
+	if abs(dx) > 5.0:
+		var chase_dir: int = int(sign(dx))
+		if DEBUG_ENABLED and chase_dir != _dbg_last_facing:
+			_dbg("chase", "dir=%d effective=(%.0f,%.0f) dx=%.0f dy_above=%.0f" \
+				% [chase_dir, effective.x, effective.y, dx, dy_above])
+			_dbg_last_facing = chase_dir
+		return chase_dir
+	return current_facing
+
+
+func _apply_facing(dir: int) -> void:
+	if dir == 0:
+		return
+	current_facing = dir
+	sprite.set_facing(current_facing)
+	hitbox.position.x = abs(hitbox.position.x) * current_facing
+
+
+func _get_effective_target_position() -> Vector2:
+	# Devuelve la posición que el enemy debería perseguir AHORA:
+	# - Si target está alcanzable de un salto (con margen estricto) → posición del target directa
+	# - Si no → posición de la mejor plataforma intermedia (multi-hop)
+	# Usa histéresis para no oscilar entre DIRECT e INTERMEDIATE cuando dy_above está al filo.
+	if _target == null:
+		return global_position
+	var target_pos: Vector2 = _target.global_position
+	var dy_above: float = global_position.y - target_pos.y
+
+	# Histéresis: cambiar de estado solo al cruzar threshold (dy O dx).
+	var dx_to_target: float = abs(target_pos.x - global_position.x)
+	if _multi_hop_active:
+		# Deactivate solo si AMBOS dy Y dx son chicos.
+		if dy_above < MULTI_HOP_DEACTIVATE_DY and dx_to_target < MULTI_HOP_DEACTIVATE_DX:
+			_multi_hop_active = false
+	else:
+		# Activate si dy O dx superan threshold.
+		if dy_above > MULTI_HOP_ACTIVATE_DY or dx_to_target > MULTI_HOP_ACTIVATE_DX:
+			_multi_hop_active = true
+
+	if not _multi_hop_active:
+		if DEBUG_ENABLED and _dbg_last_intermediate_name != "DIRECT":
+			_dbg("target", "DIRECT (dy=%.0f, hist deactivate=%.0f)" % [dy_above, MULTI_HOP_DEACTIVATE_DY])
+			_dbg_last_intermediate_name = "DIRECT"
+		return target_pos
+
+	# Refresh del cache periódicamente para no buscar plataformas cada frame.
+	if _intermediate_check_timer <= 0.0:
+		_intermediate_platform = _find_intermediate_platform()
+		_intermediate_check_timer = INTERMEDIATE_CHECK_INTERVAL
+	if _intermediate_platform != null and is_instance_valid(_intermediate_platform):
+		var inter_name: String = _intermediate_platform.name
+		if DEBUG_ENABLED and _dbg_last_intermediate_name != inter_name:
+			_dbg("target", "INTERMEDIATE=%s pos=(%.0f,%.0f) dy_total=%.0f" \
+				% [inter_name, _intermediate_platform.global_position.x, _intermediate_platform.global_position.y, dy_above])
+			_dbg_last_intermediate_name = inter_name
+		return _intermediate_platform.global_position
+	if DEBUG_ENABLED and _dbg_last_intermediate_name != "NULL":
+		_dbg("target", "NO_INTERMEDIATE_FOUND fallback=player_real (dy_total=%.0f)" % dy_above)
+		_dbg_last_intermediate_name = "NULL"
+	return target_pos
+
+
+func _find_intermediate_platform() -> Node2D:
+	# Busca la mejor plataforma intermedia (escalón) entre el enemy y el target.
+	# Filtros:
+	# - Alcanzable desde el enemy (dy entre 40px y MAX_JUMP_HEIGHT).
+	# - El target debe ser alcanzable DESDE esa plataforma (con margen).
+	# - No más alta que el target (debe ser escalón intermedio, no destino final).
+	# Heurística: costo total = dist(enemy → platform) + dist(platform → target).
+	# Esto prefiere plataformas en el path natural enemy → target sobre las geográficamente lejanas.
+	if _target == null:
+		return null
+	var candidates: Array = get_tree().get_nodes_in_group("platform")
+	var best: Node2D = null
+	var best_cost: float = INF
+	for plat in candidates:
+		if not plat is Node2D:
+			continue
+		var p2d: Node2D = plat
+		var plat_dy_above: float = global_position.y - p2d.global_position.y
+		# Filtro 1: alcanzable desde donde estoy
+		if plat_dy_above < 40.0 or plat_dy_above > MAX_JUMP_HEIGHT:
+			continue
+		# Filtro 2: no más alta que el target (es escalón, no destino)
+		if p2d.global_position.y < _target.global_position.y - 30.0:
+			continue
+		# Filtro 3: target debe ser alcanzable desde esta plataforma (con margen amplio para multi-hop)
+		var jump_to_target: float = p2d.global_position.y - _target.global_position.y
+		if jump_to_target > MAX_JUMP_HEIGHT * 1.1:
+			# Esta plataforma no permite saltar al target. Cadena rota.
+			continue
+		# Filtro 4: descartar la plataforma donde el target probablemente está parado.
+		# EXCEPCIÓN: si el target está fuera del alcance horizontal del salto,
+		# esta plataforma puede servir como escalón intermedio para llegar al lado del target.
+		if jump_to_target < 30.0:
+			var dx_target: float = abs(_target.global_position.x - global_position.x)
+			if dx_target <= JUMP_TRIGGER_MAX_DISTANCE:
+				continue  # target alcanzable directo lateral, plataforma no sirve como intermedia
+		# Filtro 5: si estoy SOBRE una plataforma elevada (no en suelo), la intermedia debe
+		# ser alcanzable de un salto. Desde plataformas altas no puedo caminar a una lejana
+		# sin caer al suelo. Desde suelo SÍ puedo caminar, por eso este filtro no aplica.
+		var on_elevated: bool = global_position.y < -50.0
+		if on_elevated:
+			var dx_to_plat: float = abs(p2d.global_position.x - global_position.x)
+			if dx_to_plat > JUMP_TRIGGER_MAX_DISTANCE:
+				continue
+		# Costo total del path: enemy → platform → target
+		var cost: float = global_position.distance_to(p2d.global_position) \
+			+ p2d.global_position.distance_to(_target.global_position)
+		if cost < best_cost:
+			best_cost = cost
+			best = p2d
+	return best
+
+
+func _target_at_similar_height() -> bool:
+	# Evita atacar al aire cuando target está mucho más arriba/abajo.
+	if _target == null:
+		return false
+	return abs(_target.global_position.y - global_position.y) < 80.0
+
+
+func _dbg(tag: String, msg: String) -> void:
+	# Helper de print con tag consistente. Solo se llama desde DEBUG_ENABLED branches.
+	print("[ENEMY @%.0f,%.0f] %s: %s" % [global_position.x, global_position.y, tag, msg])
+
+
+func _dbg_tick_ceiling() -> void:
+	# Llamar desde _physics_process si quieres ver cuando cambia has_ceiling_above.
+	# (No conectado por default. Conectar en _physics_process si hace falta más telemetría.)
+	if not DEBUG_ENABLED:
+		return
+	var c: bool = _has_ceiling_above()
+	if c != _dbg_last_ceiling:
+		_dbg("ceiling", "%s -> %s" % [str(_dbg_last_ceiling), str(c)])
+		_dbg_last_ceiling = c

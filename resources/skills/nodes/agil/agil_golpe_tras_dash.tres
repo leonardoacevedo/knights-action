@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_a_golpe_tras_dash"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 2
+mode = 1
+amount = 0.10
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"agil_golpe_tras_dash"
+display_name = "Golpe Tras Dash"
+description = "El dash amplifica el primer impacto. +10% daño físico en el primer golpe dentro de los 0.5s post-dash. Aplica vía buff temporal en player.gd (_post_dash_damage_mult)."
+branch = 2
+point_cost = 1
+prerequisites = [&"agil_dash_rapido"]
+tier = 2
+effects = [SubResource("eff_1")]

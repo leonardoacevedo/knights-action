@@ -1,0 +1,108 @@
+[gd_scene load_steps=6 format=3 uid="uid://dtcxm7k4qrt5p"]
+
+[ext_resource type="PackedScene" path="res://scenes/ui/virtual_joystick.tscn" id="1_vjoy"]
+[ext_resource type="PackedScene" path="res://scenes/ui/touch_button.tscn" id="2_tbtn"]
+[ext_resource type="Script" path="res://scripts/ui/icon_button.gd" id="3_icon"]
+[ext_resource type="Script" path="res://scripts/ui/touch_controls.gd" id="4_layer"]
+
+[node name="TouchControls" type="CanvasLayer"]
+layer = 10
+script = ExtResource("4_layer")
+
+[node name="VirtualJoystick" parent="." instance=ExtResource("1_vjoy")]
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -264.0
+offset_right = 264.0
+offset_bottom = -24.0
+
+[node name="BtnInventory" parent="." instance=ExtResource("2_tbtn")]
+script = ExtResource("3_icon")
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -304.0
+offset_top = -284.0
+offset_right = -214.0
+offset_bottom = -194.0
+action_name = &"inventory"
+label_text = ""
+color_normal = Color(0.45, 0.45, 0.55, 0.75)
+color_pressed = Color(0.65, 0.65, 0.80, 0.95)
+icon_id = "bag"
+
+[node name="BtnJump" parent="." instance=ExtResource("2_tbtn")]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -194.0
+offset_top = -284.0
+offset_right = -104.0
+offset_bottom = -194.0
+action_name = &"ui_accept"
+label_text = "J"
+color_normal = Color(0.15, 0.75, 0.25, 0.80)
+color_pressed = Color(0.25, 1.0, 0.35, 0.95)
+
+[node name="BtnEquipment" parent="." instance=ExtResource("2_tbtn")]
+script = ExtResource("3_icon")
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -94.0
+offset_top = -284.0
+offset_right = -4.0
+offset_bottom = -194.0
+action_name = &"inventory"
+label_text = ""
+color_normal = Color(0.40, 0.50, 0.45, 0.75)
+color_pressed = Color(0.55, 0.70, 0.60, 0.95)
+icon_id = "helmet"
+
+[node name="BtnDash" parent="." instance=ExtResource("2_tbtn")]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -304.0
+offset_top = -114.0
+offset_right = -214.0
+offset_bottom = -24.0
+action_name = &"dash"
+label_text = "D"
+color_normal = Color(0.10, 0.65, 0.90, 0.80)
+color_pressed = Color(0.20, 0.90, 1.0, 0.95)
+
+[node name="BtnBlock" parent="." instance=ExtResource("2_tbtn")]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -194.0
+offset_top = -114.0
+offset_right = -104.0
+offset_bottom = -24.0
+action_name = &"block"
+label_text = "B"
+color_normal = Color(0.45, 0.75, 1.0, 0.80)
+color_pressed = Color(0.95, 0.85, 0.40, 0.95)
+
+[node name="BtnAttack" parent="." instance=ExtResource("2_tbtn")]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -94.0
+offset_top = -114.0
+offset_right = -4.0
+offset_bottom = -24.0
+action_name = &"attack"
+label_text = "A"
+color_normal = Color(0.85, 0.15, 0.15, 0.80)
+color_pressed = Color(1.0, 0.35, 0.15, 0.95)

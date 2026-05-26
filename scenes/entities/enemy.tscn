@@ -1,0 +1,60 @@
+[gd_scene load_steps=9 format=3 uid="uid://c5qx2rj8wnpm4"]
+
+[ext_resource type="Script" path="res://scripts/entities/enemy.gd" id="1_enemy"]
+[ext_resource type="Script" path="res://scripts/rendering/stick_figure.gd" id="2_stick"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/components/hitbox_component.gd" id="4_hitbox"]
+[ext_resource type="Script" path="res://scripts/components/hurtbox_component.gd" id="5_hurtbox"]
+[ext_resource type="PackedScene" path="res://scenes/ui/entity_hud.tscn" id="6_ehud"]
+[ext_resource type="Script" path="res://scripts/components/enemy_block_handler.gd" id="7_block"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(20, 60)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hit"]
+size = Vector2(40, 30)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hurt"]
+size = Vector2(22, 56)
+
+[node name="Enemy" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_enemy")
+team = 2
+
+[node name="BodyShape" type="CollisionShape2D" parent="."]
+position = Vector2(0, -30)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="StickFigure" type="Node2D" parent="."]
+script = ExtResource("2_stick")
+body_color = Color(1, 0.4, 0.4, 1)
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("3_health")
+max_health = 40
+
+[node name="Hitbox" type="Area2D" parent="."]
+position = Vector2(25, -25)
+script = ExtResource("4_hitbox")
+damage = 8
+team = 2
+
+[node name="HitboxShape" type="CollisionShape2D" parent="Hitbox"]
+shape = SubResource("RectangleShape2D_hit")
+disabled = true
+
+[node name="Hurtbox" type="Area2D" parent="."]
+script = ExtResource("5_hurtbox")
+team = 2
+
+[node name="HurtboxShape" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(0, -28)
+shape = SubResource("RectangleShape2D_hurt")
+
+[node name="EnemyBlockHandler" type="Node" parent="."]
+script = ExtResource("7_block")
+
+[node name="EntityHud" parent="." instance=ExtResource("6_ehud")]
+position = Vector2(0, -78)

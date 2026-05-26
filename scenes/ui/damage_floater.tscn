@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dflxk7naqrtab"]
+
+[ext_resource type="Script" path="res://scripts/ui/damage_floater.gd" id="1_dflt"]
+
+[node name="DamageFloater" type="Label"]
+script = ExtResource("1_dflt")

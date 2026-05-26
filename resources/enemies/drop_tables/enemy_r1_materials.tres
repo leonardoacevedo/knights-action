@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="DropTable" format=3 uid="uid://dt_enemy_r1_mat"]
+
+[ext_resource type="Script" path="res://scripts/data/drop_table.gd" id="1_dttable"]
+[ext_resource type="Script" path="res://scripts/data/drop_entry.gd" id="2_dtentry"]
+[ext_resource type="Resource" path="res://resources/materials/hierba_antigua.tres" id="3_hierba"]
+[ext_resource type="Resource" path="res://resources/materials/piedra_resonancia.tres" id="4_piedra"]
+
+[sub_resource type="Resource" id="Entry_r1_hierba"]
+script = ExtResource("2_dtentry")
+drop_type = 1
+material_data = ExtResource("3_hierba")
+material_count_min = 1
+material_count_max = 2
+weight = 1.0
+drop_chance = 0.65
+
+[sub_resource type="Resource" id="Entry_r1_piedra"]
+script = ExtResource("2_dtentry")
+drop_type = 1
+material_data = ExtResource("4_piedra")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.15
+
+[resource]
+script = ExtResource("1_dttable")
+entries = Array[ExtResource("2_dtentry")]([SubResource("Entry_r1_hierba"), SubResource("Entry_r1_piedra")])

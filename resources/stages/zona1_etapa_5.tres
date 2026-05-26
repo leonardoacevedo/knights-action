@@ -1,0 +1,85 @@
+[gd_resource type="Resource" script_class="StageData" load_steps=17 format=3 uid="uid://stg5_zona1"]
+
+[ext_resource type="Script" path="res://scripts/data/stage_data.gd" id="1_stage"]
+[ext_resource type="Script" path="res://scripts/data/enemy_spawn_entry.gd" id="2_entry"]
+[ext_resource type="Script" path="res://scripts/data/stage_platform_config.gd" id="3_platcfg"]
+[ext_resource type="Resource" path="res://resources/stages/drop_tables/zona1_etapa_5_materials.tres" id="4_drops"]
+[ext_resource type="Resource" path="res://resources/stages/drop_tables/zona1_etapa_5_items.tres" id="8_item_drops"]
+[ext_resource type="Resource" path="res://resources/enemies/drop_tables/enemy_r1_materials.tres" id="5_dr1"]
+[ext_resource type="Resource" path="res://resources/enemies/drop_tables/enemy_r2_materials.tres" id="6_dr2"]
+[ext_resource type="Resource" path="res://resources/enemies/drop_tables/enemy_r3_materials.tres" id="7_dr3"]
+
+[sub_resource type="Resource" id="Entry_e5_melee_r1"]
+script = ExtResource("2_entry")
+enemy_class = 0
+rarity = 0
+count = 1
+material_drops = ExtResource("5_dr1")
+
+[sub_resource type="Resource" id="Entry_e5_tank_r2"]
+script = ExtResource("2_entry")
+enemy_class = 1
+rarity = 1
+count = 1
+element = 3
+material_drops = ExtResource("6_dr2")
+
+[sub_resource type="Resource" id="Entry_e5_mage_r3"]
+script = ExtResource("2_entry")
+enemy_class = 3
+rarity = 2
+count = 2
+element = 2
+material_drops = ExtResource("7_dr3")
+
+[sub_resource type="Resource" id="Entry_e5_archer_r3"]
+script = ExtResource("2_entry")
+enemy_class = 2
+rarity = 2
+count = 1
+element = 3
+material_drops = ExtResource("7_dr3")
+
+[sub_resource type="Resource" id="Plat_e5_a"]
+script = ExtResource("3_platcfg")
+position = Vector2(-580, -90)
+size = Vector2(180, 20)
+color = Color(0.38, 0.28, 0.18, 1.0)
+
+[sub_resource type="Resource" id="Plat_e5_b"]
+script = ExtResource("3_platcfg")
+position = Vector2(-260, -200)
+size = Vector2(160, 20)
+color = Color(0.38, 0.28, 0.18, 1.0)
+
+[sub_resource type="Resource" id="Plat_e5_c"]
+script = ExtResource("3_platcfg")
+position = Vector2(0, -270)
+size = Vector2(140, 20)
+color = Color(0.38, 0.28, 0.18, 1.0)
+
+[sub_resource type="Resource" id="Plat_e5_d"]
+script = ExtResource("3_platcfg")
+position = Vector2(260, -200)
+size = Vector2(160, 20)
+color = Color(0.38, 0.28, 0.18, 1.0)
+
+[sub_resource type="Resource" id="Plat_e5_e"]
+script = ExtResource("3_platcfg")
+position = Vector2(580, -90)
+size = Vector2(180, 20)
+color = Color(0.38, 0.28, 0.18, 1.0)
+
+[resource]
+script = ExtResource("1_stage")
+stage_index = 5
+display_name = "Vanguardia del Guardián"
+subtitle = "Los magos del bosque custodian la última frontera. Pasarlos es mérito. Sobrevivirlos, promesa."
+spawns = [SubResource("Entry_e5_melee_r1"), SubResource("Entry_e5_tank_r2"), SubResource("Entry_e5_mage_r3"), SubResource("Entry_e5_archer_r3")]
+is_boss = false
+ambient_tint = Color(1.10, 0.92, 0.70, 1.0)
+platform_overrides = [SubResource("Plat_e5_a"), SubResource("Plat_e5_b"), SubResource("Plat_e5_c"), SubResource("Plat_e5_d"), SubResource("Plat_e5_e")]
+hide_default_platforms = false
+show_decorations = true
+material_drops = ExtResource("4_drops")
+item_drops = ExtResource("8_item_drops")

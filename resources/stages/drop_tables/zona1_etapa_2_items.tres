@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="DropTable" format=3 uid="uid://dt_zona1_e2_items"]
+
+[ext_resource type="Script" path="res://scripts/data/drop_table.gd" id="1_dttable"]
+[ext_resource type="Script" path="res://scripts/data/drop_entry.gd" id="2_dtentry"]
+[ext_resource type="Resource" path="res://resources/items/weapons/espada_madera.tres" id="3_espada_madera"]
+[ext_resource type="Resource" path="res://resources/items/shields/escudo_tablones.tres" id="4_escudo_tablones"]
+
+[sub_resource type="Resource" id="Entry_e2i_espada_madera"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("3_espada_madera")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.3
+
+[sub_resource type="Resource" id="Entry_e2i_escudo_tablones"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("4_escudo_tablones")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.25
+
+[resource]
+script = ExtResource("1_dttable")
+entries = Array[ExtResource("2_dtentry")]([SubResource("Entry_e2i_espada_madera"), SubResource("Entry_e2i_escudo_tablones")])

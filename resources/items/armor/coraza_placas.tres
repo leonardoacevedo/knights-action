@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://scripts/data/affix_data.gd" id="2_affixdata"]
+
+[sub_resource type="Resource" id="Affix_hp"]
+script = ExtResource("2_affixdata")
+stat_id = &"hp"
+display_name = "Vida"
+value = 50
+
+[sub_resource type="Resource" id="Affix_def"]
+script = ExtResource("2_affixdata")
+stat_id = &"defense"
+display_name = "Defensa"
+value = 5
+
+[resource]
+script = ExtResource("1_itemdata")
+id = &"coraza_placas"
+display_name = "Coraza de Placas"
+description = "Placas superpuestas remachadas a una base de cuero. Pesa, pero detiene casi todo."
+slot = 1
+rarity = 2
+element = 0
+stat_main = 24
+refinement_level = 0
+affixes = [SubResource("Affix_hp"), SubResource("Affix_def")]
+visual_type = 0

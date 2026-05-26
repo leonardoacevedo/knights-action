@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="SetBonusData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/set_bonus_data.gd" id="1_set_bonus_data"]
+
+[resource]
+script = ExtResource("1_set_bonus_data")
+element = 1
+bonus_2pc_name = "Brasas Vivas"
+bonus_2pc_description = "+10% daño total."
+damage_multiplier_2pc = 1.1
+furia_regen_per_sec_2pc = 0.0
+hp_multiplier_2pc = 1.0
+bonus_3pc_name = "Brasa Persistente"
+bonus_3pc_description = "Al matar un enemy, el próximo golpe hace AoE (radio 80px, 60% del daño)."
+fuego_aoe_radius = 80.0
+fuego_aoe_damage_pct = 0.6
+agua_dash_reset_on_pass = false
+tierra_block_restores_charge = false

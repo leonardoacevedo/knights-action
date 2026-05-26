@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_a_sombra_del_valle"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 11
+mode = 1
+amount = 0.30
+
+[sub_resource type="Resource" id="eff_2"]
+script = ExtResource("2_skilleffect")
+stat = 2
+mode = 1
+amount = 0.15
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"agil_sombra_del_valle"
+display_name = "Sombra del Valle"
+description = "Capstone Ágil. Desapareces entre los golpes. +30% i-frames (DashComponent.iframes_mult), +15% daño físico permanente. Invisibilidad 0.5s post-dash (modulate.a=0.35) + garantía de ventaja elemental en el primer golpe post-dash (HitboxComponent.force_elem_advantage)."
+branch = 2
+point_cost = 1
+prerequisites = [&"agil_flujo_perpetuo"]
+tier = 5
+effects = [SubResource("eff_1"), SubResource("eff_2")]

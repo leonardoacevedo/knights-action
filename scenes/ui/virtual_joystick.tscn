@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://dvjxk7m4qrt2p"]
+
+[ext_resource type="Script" path="res://scripts/ui/virtual_joystick.gd" id="1_vjoy"]
+
+[node name="VirtualJoystick" type="Control"]
+script = ExtResource("1_vjoy")
+# Zona de captura: 160×160 dp (supera el mínimo de 80×80 del hit area).
+# El joystick base (radio 80) se dibuja dentro de este rect.
+custom_minimum_size = Vector2(160, 160)
+# Anclaje inferior-izquierdo (definido en touch_controls.tscn con offset preciso).
+mouse_filter = 0

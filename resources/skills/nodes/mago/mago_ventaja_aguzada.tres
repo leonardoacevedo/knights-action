@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_m_ventaja_aguzada"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 14
+mode = 1
+amount = 0.15
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"mago_ventaja_aguzada"
+display_name = "Ventaja Aguzada"
+description = "El triángulo elemental se vuelve más pronunciado. +15% al multiplicador de ventaja elemental (base 1.5 → 1.65). Aplica en HitboxComponent.elemental_adv_skill_bonus vía PlayerStatsComponent."
+branch = 1
+point_cost = 1
+prerequisites = [&"mago_poder_elemental", &"mago_toque_elemental"]
+tier = 3
+effects = [SubResource("eff_1")]

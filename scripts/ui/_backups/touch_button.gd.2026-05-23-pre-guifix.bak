@@ -1,0 +1,98 @@
+extends Control
+class_name TouchButton
+
+## Botón touch para controles móviles.
+## @export action_name: nombre de la action a simular (attack, dash, ui_accept).
+## Press en touch down, release en touch up. Soporta multitouch.
+
+signal button_pressed
+signal button_released
+
+## Action de Godot Input que activa este botón.
+@export var action_name: StringName = &"attack"
+## Etiqueta visible dentro del botón (1 carácter recomendado: A, D, J).
+@export var label_text: String = "A"
+## Color de fondo del botón en reposo.
+@export var color_normal: Color = Color(0.85, 0.15, 0.15, 0.75)
+## Color cuando está presionado.
+@export var color_pressed: Color = Color(1.0, 0.45, 0.15, 0.95)
+## Radio visual del botón.
+@export var visual_radius: float = 38.0
+
+var _is_pressed: bool = false
+# Puede haber más de un dedo sobre el botón; rastreamos todos para release correcto.
+var _touch_indices: Array[int] = []
+
+@onready var _label: Label = $Label
+
+
+func _ready() -> void:
+	_label.text = label_text
+	queue_redraw()
+
+
+func _draw() -> void:
+	var center: Vector2 = size / 2.0
+	var col: Color = color_pressed if _is_pressed else color_normal
+	# Círculo de fondo.
+	draw_circle(center, visual_radius, col)
+	# Borde sutil más claro.
+	draw_arc(center, visual_radius, 0.0, TAU, 32, Color(1, 1, 1, 0.25), 2.0)
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		_handle_screen_touch(event)
+	elif event is InputEventMouseButton:
+		_handle_mouse_button(event)
+
+
+func _handle_screen_touch(event: InputEventScreenTouch) -> void:
+	if event.pressed:
+		if _is_inside_zone(event.position):
+			_touch_indices.append(event.index)
+			_press()
+	else:
+		if _touch_indices.has(event.index):
+			_touch_indices.erase(event.index)
+			if _touch_indices.is_empty():
+				_release()
+
+
+func _handle_mouse_button(event: InputEventMouseButton) -> void:
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if event.pressed:
+		if _is_inside_zone(event.position):
+			# Índice sintético -2 para mouse.
+			if not _touch_indices.has(-2):
+				_touch_indices.append(-2)
+			_press()
+	else:
+		if _touch_indices.has(-2):
+			_touch_indices.erase(-2)
+			if _touch_indices.is_empty():
+				_release()
+
+
+func _press() -> void:
+	if _is_pressed:
+		return
+	_is_pressed = true
+	Input.action_press(action_name)
+	button_pressed.emit()
+	queue_redraw()
+
+
+func _release() -> void:
+	if not _is_pressed:
+		return
+	_is_pressed = false
+	Input.action_release(action_name)
+	button_released.emit()
+	queue_redraw()
+
+
+func _is_inside_zone(pos: Vector2) -> bool:
+	var rect: Rect2 = Rect2(global_position, size)
+	return rect.has_point(pos)

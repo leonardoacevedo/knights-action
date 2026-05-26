@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_g_espiritu_marcial"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 2
+mode = 1
+amount = 0.20
+
+[sub_resource type="Resource" id="eff_2"]
+script = ExtResource("2_skilleffect")
+stat = 0
+mode = 0
+amount = 20.0
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"guerrero_espiritu_marcial"
+display_name = "Espíritu Marcial"
+description = "Capstone Guerrero. El que bloquea no solo sobrevive — contraataca. +20% daño físico permanente y +20 HP. Al bloquear: +20% daño físico por 2s (buff temporal en player.gd._espiritu_marcial_active, vía ShieldComponent.hit_blocked signal)."
+branch = 0
+point_cost = 1
+prerequisites = [&"guerrero_maestria_marcial", &"guerrero_iframes_escudo"]
+tier = 5
+effects = [SubResource("eff_1"), SubResource("eff_2")]

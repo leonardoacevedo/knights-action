@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_m_resonancia_arcana"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 7
+mode = 0
+amount = 1.0
+
+[sub_resource type="Resource" id="eff_2"]
+script = ExtResource("2_skilleffect")
+stat = 10
+mode = 1
+amount = 0.15
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"mago_resonancia_arcana"
+display_name = "Resonancia Arcana"
+description = "Capstone Mago. La energía elemental impregna el aire. +1 Furia/s pasiva (FuriaComponent._passive_regen_per_sec, skill se suma al set bonus AGUA 2pc si activo). +15% daño elemental permanente. Aplica en PlayerStatsComponent._apply_furia_skills()."
+branch = 1
+point_cost = 1
+prerequisites = [&"mago_canalizar_masivo"]
+tier = 5
+effects = [SubResource("eff_1"), SubResource("eff_2")]

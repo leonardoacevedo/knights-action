@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/xp_toast_container.gd" id="1_xp_container"]
+
+[node name="XpToastContainer" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 24.0
+offset_top = 140.0
+offset_right = 320.0
+offset_bottom = 500.0
+mouse_filter = 2
+script = ExtResource("1_xp_container")

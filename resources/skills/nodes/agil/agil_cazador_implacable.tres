@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_a_cazador_implacable"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 2
+mode = 1
+amount = 0.12
+
+[sub_resource type="Resource" id="eff_2"]
+script = ExtResource("2_skilleffect")
+stat = 8
+mode = 1
+amount = -0.15
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"agil_cazador_implacable"
+display_name = "Cazador Implacable"
+description = "Golpea rápido, golpea más fuerte. +12% daño físico y -15% cooldown dash adicional."
+branch = 2
+point_cost = 1
+prerequisites = [&"agil_golpe_tras_dash", &"agil_esquiva_instintiva"]
+tier = 3
+effects = [SubResource("eff_1"), SubResource("eff_2")]

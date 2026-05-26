@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="DropTable" format=3 uid="uid://dt_zona1_e3_items"]
+
+[ext_resource type="Script" path="res://scripts/data/drop_table.gd" id="1_dttable"]
+[ext_resource type="Script" path="res://scripts/data/drop_entry.gd" id="2_dtentry"]
+[ext_resource type="Resource" path="res://resources/items/armor/cota_cuero.tres" id="3_cota_cuero"]
+[ext_resource type="Resource" path="res://resources/items/weapons/arco_corto.tres" id="4_arco_corto"]
+[ext_resource type="Resource" path="res://resources/items/shields/escudo_hierro.tres" id="5_escudo_hierro"]
+
+[sub_resource type="Resource" id="Entry_e3i_cota_cuero"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("3_cota_cuero")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.35
+
+[sub_resource type="Resource" id="Entry_e3i_arco_corto"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("4_arco_corto")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.2
+
+[sub_resource type="Resource" id="Entry_e3i_escudo_hierro"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("5_escudo_hierro")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.15
+
+[resource]
+script = ExtResource("1_dttable")
+entries = Array[ExtResource("2_dtentry")]([SubResource("Entry_e3i_cota_cuero"), SubResource("Entry_e3i_arco_corto"), SubResource("Entry_e3i_escudo_hierro")])

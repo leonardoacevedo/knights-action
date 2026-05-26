@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_g_cuerpo_forjado"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 0
+mode = 1
+amount = 0.08
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"guerrero_cuerpo_forjado"
+display_name = "Cuerpo Forjado"
+description = "El temple del hierro se graba en la carne. +8% HP máximo."
+branch = 0
+point_cost = 1
+prerequisites = [&"guerrero_vitalidad_1"]
+tier = 2
+effects = [SubResource("eff_1")]

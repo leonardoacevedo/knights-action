@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_a_dash_rapido"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 8
+mode = 1
+amount = -0.20
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"agil_dash_rapido"
+display_name = "Dash Rápido"
+description = "El cooldown del dash se recarga antes. -20% cooldown de dash. Aplica en DashComponent.dash_cooldown_mult."
+branch = 2
+point_cost = 1
+prerequisites = []
+tier = 1
+effects = [SubResource("eff_1")]

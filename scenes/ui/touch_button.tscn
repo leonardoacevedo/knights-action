@@ -1,0 +1,24 @@
+[gd_scene load_steps=2 format=3 uid="uid://ctbxk2m9qrt4a"]
+
+[ext_resource type="Script" path="res://scripts/ui/touch_button.gd" id="1_tbtn"]
+
+[node name="TouchButton" type="Control"]
+script = ExtResource("1_tbtn")
+# Zona hit: 90×90 dp (supera el mínimo 48 dp de Material / 44 dp de Apple HIG).
+# El círculo visual (radio 38) se dibuja centrado dentro del rect.
+custom_minimum_size = Vector2(90, 90)
+mouse_filter = 0
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
+text = "A"
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://skill_g_vitalidad_1"]
+
+[ext_resource type="Script" path="res://scripts/data/skill_node.gd" id="1_skillnode"]
+[ext_resource type="Script" path="res://scripts/data/skill_effect.gd" id="2_skilleffect"]
+
+[sub_resource type="Resource" id="eff_1"]
+script = ExtResource("2_skilleffect")
+stat = 0
+mode = 0
+amount = 10.0
+
+[resource]
+script = ExtResource("1_skillnode")
+id = &"guerrero_vitalidad_1"
+display_name = "Vitalidad"
+description = "La resistencia es la primera victoria. +10 HP máximo."
+branch = 0
+point_cost = 1
+prerequisites = []
+tier = 1
+effects = [SubResource("eff_1")]

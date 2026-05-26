@@ -1,0 +1,131 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/hud_combat.gd" id="1_hud"]
+[ext_resource type="Script" path="res://scripts/ui/shield_charges_display.gd" id="2_shield_charges"]
+[ext_resource type="Script" path="res://scripts/ui/material_toast_container.gd" id="3_toast_container"]
+[ext_resource type="Script" path="res://scripts/ui/xp_toast_container.gd" id="4_xp_container"]
+[ext_resource type="Script" path="res://scripts/ui/level_up_banner.gd" id="5_lvlup"]
+
+[node name="HudCombat" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="MomentumContainer" type="Control" parent="."]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
+offset_top = 20.0
+offset_right = 120.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="MomentumLabel" type="Label" parent="MomentumContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 72
+text = "1x"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StatsContainer" type="VBoxContainer" parent="."]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 360.0
+offset_bottom = 120.0
+theme_override_constants/separation = 6
+mouse_filter = 2
+
+[node name="HPRow" type="HBoxContainer" parent="StatsContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="HPBarBG" type="ColorRect" parent="StatsContainer/HPRow"]
+custom_minimum_size = Vector2(220, 22)
+layout_mode = 2
+color = Color(0.08, 0.08, 0.1, 0.85)
+
+[node name="HPBarFG" type="ColorRect" parent="StatsContainer/HPRow/HPBarBG"]
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 218.0
+offset_bottom = 20.0
+color = Color(0.85, 0.2, 0.22, 1)
+
+[node name="HPLabel" type="Label" parent="StatsContainer/HPRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 14
+text = "100 / 100"
+vertical_alignment = 1
+
+[node name="FuriaRow" type="HBoxContainer" parent="StatsContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="FuriaBarBG" type="ColorRect" parent="StatsContainer/FuriaRow"]
+custom_minimum_size = Vector2(220, 18)
+layout_mode = 2
+color = Color(0.08, 0.08, 0.1, 0.85)
+
+[node name="FuriaBarFG" type="ColorRect" parent="StatsContainer/FuriaRow/FuriaBarBG"]
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 218.0
+offset_bottom = 16.0
+color = Color(0.55, 0.25, 0.85, 1)
+
+[node name="FuriaLabel" type="Label" parent="StatsContainer/FuriaRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 14
+text = "0"
+vertical_alignment = 1
+
+[node name="ShieldRow" type="HBoxContainer" parent="StatsContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ShieldChargesDisplay" type="Control" parent="StatsContainer/ShieldRow"]
+custom_minimum_size = Vector2(90, 22)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("2_shield_charges")
+
+[node name="MaterialToastContainer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -320.0
+offset_top = 24.0
+offset_right = -16.0
+offset_bottom = 600.0
+mouse_filter = 2
+script = ExtResource("3_toast_container")
+
+[node name="XpToastContainer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 24.0
+offset_top = 140.0
+offset_right = 320.0
+offset_bottom = 500.0
+mouse_filter = 2
+script = ExtResource("4_xp_container")
+
+[node name="LevelUpBanner" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("5_lvlup")

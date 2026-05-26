@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://scripts/data/affix_data.gd" id="2_affixdata"]
+
+[sub_resource type="Resource" id="AffixData_1"]
+script = ExtResource("2_affixdata")
+stat_id = &"defense"
+display_name = "Defensa"
+value = 4
+
+[resource]
+script = ExtResource("1_itemdata")
+id = &"escudo_tablones"
+display_name = "Escudo de Tablones"
+description = "Tres tablas clavadas. Sin cargas de bloqueo, pero aguanta varios golpes antes de quebrarse."
+slot = 2
+rarity = 0
+element = 0
+stat_main = 6
+refinement_level = 0
+affixes = [SubResource("AffixData_1")]
+visual_type = 5

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Read(//**)",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(cat:*)",
+      "Bash(type:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote:*)",
+      "Bash(godot --version)",
+      "Bash(godot --headless --check-only:*)",
+      "Bash(godot --headless --import:*)",
+      "Bash(mkdir:*)",
+      "Bash(echo:*)",
+      "PowerShell(Get-ChildItem:*)",
+      "PowerShell(Get-Content:*)",
+      "PowerShell(Test-Path:*)",
+      "WebFetch(domain:docs.godotengine.org)",
+      "WebSearch"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -f:*)",
+      "Bash(git branch -D:*)",
+      "Write(**/.env)",
+      "Write(**/credentials*)",
+      "Write(**/secrets*)"
+    ]
+  },
+  "env": {
+    "PROJECT_NAME": "Knights Action",
+    "GODOT_VERSION": "4.6",
+    "PROJECT_PHASE": "Fase 1 - Prototipo de Combate",
+    "GDD_PATH": "GDD.md",
+    "PRIMARY_LANGUAGE": "GDScript",
+    "TARGET_PLATFORM": "Mobile (iOS/Android), dev/test PC"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -Command \"if (Test-Path 'docs/handoffs/LATEST.md') { Write-Output '=== HANDOFF DE SESION ANTERIOR (docs/handoffs/LATEST.md) ===' ; Get-Content -Path 'docs/handoffs/LATEST.md' -Raw ; Write-Output '=== FIN DEL HANDOFF ===' } else { Write-Output 'No hay handoff previo en docs/handoffs/LATEST.md. Primera sesion o LATEST aun no fue generado. Corre /genera-resumen al terminar la sesion.' }\""
+          }
+        ]
+      }
+    ]
+  }
+}

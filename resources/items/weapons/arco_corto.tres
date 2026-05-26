@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://scripts/data/affix_data.gd" id="2_affixdata"]
+
+[sub_resource type="Resource" id="Affix_hp"]
+script = ExtResource("2_affixdata")
+stat_id = &"hp"
+display_name = "Vida"
+value = 4
+
+[resource]
+script = ExtResource("1_itemdata")
+id = &"arco_corto"
+display_name = "Arco Corto"
+description = "Madera curada y tendón. Liviano pero certero a media distancia."
+slot = 0
+rarity = 1
+element = 0
+stat_main = 18
+refinement_level = 0
+affixes = [SubResource("Affix_hp")]
+visual_type = 2
