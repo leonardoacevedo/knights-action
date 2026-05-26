@@ -278,7 +278,7 @@ func _find_sibling_component(class_name_str: String) -> Node:
 	for sibling: Node in get_parent().get_children():
 		if sibling == self:
 			continue
-		var script := sibling.get_script()
+		var script: Script = sibling.get_script() as Script
 		if script != null and script.get_global_name() == class_name_str:
 			return sibling
 	return null

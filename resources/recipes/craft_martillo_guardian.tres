@@ -37,5 +37,5 @@ display_name = "Reconstituir Martillo del Guardián"
 description = "Forjar este martillo exige lo mejor que el Valle puede dar. Solo el que derrotó al Guardián sabe de qué está hecho."
 inputs = [SubResource("Input_hierba"), SubResource("Input_savia"), SubResource("Input_esencia"), SubResource("Input_piedra")]
 output_item = ExtResource("9_output")
-gold_cost = 0
+gold_cost = 800
 required_player_level = 1

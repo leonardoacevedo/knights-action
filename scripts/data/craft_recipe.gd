@@ -35,8 +35,7 @@ class_name CraftRecipe
 
 # ─── Costos extra ─────────────────────────────────────────────────────────────
 
-## Costo en Oro. Siempre 0 hasta implementar GoldSystem.
-## TODO (Oro): CraftingSystem leerá este valor y llamará a GoldSystem.consume().
+## Costo en Oro. CraftingSystem valida con GoldSystem.can_afford() y consume con GoldSystem.consume().
 @export var gold_cost: int = 0
 
 # ─── Gating futuro ────────────────────────────────────────────────────────────

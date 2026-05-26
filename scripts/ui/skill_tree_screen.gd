@@ -1289,6 +1289,7 @@ func _format_effect(effect: SkillEffect) -> String:
 		SkillEffect.Stat.CRIT_PCT:            "Critico (futuro)",
 		SkillEffect.Stat.ELEMENTAL_ADV_MULT:  "Bonus Elemental (futuro)",
 		SkillEffect.Stat.EVADE_PCT:           "Esquiva (futuro)",
+		SkillEffect.Stat.POST_DASH_DAMAGE_PCT:"Daño Tras Dash",
 	}
 	var stat_name: String = stat_names.get(effect.stat, "Stat (%d)" % effect.stat)
 	var amount_str: String

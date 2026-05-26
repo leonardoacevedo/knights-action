@@ -302,6 +302,26 @@ static func xp_for_kill(rarity: int) -> int:
 	return XP_PER_RARITY.get(rarity, 0)
 
 
+# ─── SISTEMA DE ORO — Oro por kill (GDD §5.5) ────────────────────────────────
+
+## Oro base que otorga un enemy al morir según su rareza.
+## El multiplicador de Momentum se aplica en GoldSystem._on_enemy_died (no aquí).
+## Proporcional a XP/2: R1=5, R2=12 (≈25/2), R3=30 (≈60/2), R4=150 (≈300/2).
+## Ajustado ligeramente hacia arriba para que el total post-Zona1 alcance los costos
+## de refinamiento +10 (≈8270g total acumulado). Ver docs/features/gold_system.md.
+const GOLD_PER_RARITY: Dictionary = {
+	EnemyRarity.R1: 5,
+	EnemyRarity.R2: 15,
+	EnemyRarity.R3: 40,
+	EnemyRarity.R4: 200,
+}
+
+## Oro que otorga un enemy al morir según su rareza. GoldSystem aplica mult de Momentum encima.
+## Retorna 0 para rareza desconocida.
+static func gold_for_kill(rarity: int) -> int:
+	return GOLD_PER_RARITY.get(rarity, 0)
+
+
 # ─── SISTEMA ELEMENTAL (GDD §5.3) ────────────────────────────────────────────
 
 ## Modificador de ventaja elemental. Triángulo: Fuego > Tierra > Agua > Fuego.

@@ -38,7 +38,8 @@
       "Bash(mkdir -p \"/mnt/c/Users/laace/OneDrive/Documentos/knights-action/docs/features/progression\")",
       "Bash(godot --headless --script \"res://tests/systems/player_stats_component_test.gd\")",
       "PowerShell($exe = \"C:\\\\Users\\\\laace\\\\AppData\\\\Local\\\\Temp\\\\b665e496-99e7-4954-91fe-475ca337ec18_Godot_v4.6.3-stable_win64.exe.zip.c18\\\\Godot_v4.6.3-stable_win64.exe\"; & $exe --headless --path \"C:\\\\Users\\\\laace\\\\OneDrive\\\\Documentos\\\\knights-action\" --script \"res://tests/systems/player_stats_component_test.gd\")",
-      "Bash(not exist *)"
+      "Bash(not exist *)",
+      "Bash(godot --headless --script res://tests/systems/save_system_test.gd)"
     ]
   }
 }

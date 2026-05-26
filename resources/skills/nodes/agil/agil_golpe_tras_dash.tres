@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="eff_1"]
 script = ExtResource("2_skilleffect")
-stat = 2
+stat = 16
 mode = 1
 amount = 0.10
 

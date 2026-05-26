@@ -160,6 +160,136 @@ func reset(quiet: bool = true) -> void:
 		materials_changed.emit()
 
 
+# ─── Serialización para SaveSystem ───────────────────────────────────────────
+
+## Serializa el estado completo del inventario. Llamado por SaveSystem.
+## Items: base_path + refinement_level + afijos explícitos (instancia propia del jugador).
+## Equipped: slot int → índice en array de items, -1 si vacío.
+func _serialize_state() -> Dictionary:
+	# Serializar items
+	var items_arr: Array = []
+	for item: ItemData in _items:
+		items_arr.append(_serialize_item(item))
+
+	# Serializar equipo: slot → índice en _items (-1 si vacío)
+	var equipped_dict: Dictionary = {}
+	for slot: int in _equipped:
+		var equipped_item: ItemData = _equipped[slot]
+		if equipped_item == null:
+			equipped_dict[str(slot)] = -1
+		else:
+			var idx: int = _items.find(equipped_item)
+			equipped_dict[str(slot)] = idx
+
+	# Serializar materiales: StringName → int (convertir key a String para JSON)
+	var mats_dict: Dictionary = {}
+	for mat_id: StringName in _materials:
+		mats_dict[str(mat_id)] = _materials[mat_id]
+
+	return {
+		"items": items_arr,
+		"equipped": equipped_dict,
+		"materials": mats_dict,
+	}
+
+
+## Restaura el estado desde un Dictionary guardado. Llamado por SaveSystem en _ready.
+## Limpia el inventario antes de restaurar (arranca de cero, no acumula).
+func _restore_state(data: Dictionary) -> void:
+	# Limpiar sin emitir signals — los listeners aún no están conectados al arrancar.
+	_items.clear()
+	_materials.clear()
+	for slot: int in _equipped:
+		_equipped[slot] = null
+
+	# Restaurar items
+	var items_arr: Array = data.get("items", [])
+	for item_dict in items_arr:
+		if not item_dict is Dictionary:
+			push_warning("InventorySystem._restore_state: item_dict no es Dictionary, saltando.")
+			continue
+		var restored: ItemData = _deserialize_item(item_dict)
+		if restored != null:
+			_items.append(restored)
+
+	# Restaurar materiales
+	var mats_dict: Dictionary = data.get("materials", {})
+	for mat_key in mats_dict:
+		var mat_id: StringName = StringName(str(mat_key))
+		var count: int = int(mats_dict[mat_key])
+		if count > 0:
+			_materials[mat_id] = count
+
+	# Restaurar equipo: slot → índice en _items
+	var equipped_dict: Dictionary = data.get("equipped", {})
+	for slot_key in equipped_dict:
+		var slot: int = int(str(slot_key))
+		var idx: int = int(equipped_dict[slot_key])
+		if not _equipped.has(slot):
+			push_warning("InventorySystem._restore_state: slot %d inválido, saltando." % slot)
+			continue
+		if idx < 0 or idx >= _items.size():
+			_equipped[slot] = null
+		else:
+			_equipped[slot] = _items[idx]
+
+
+## Serializa un ItemData individual a Dictionary.
+func _serialize_item(item: ItemData) -> Dictionary:
+	var affixes_arr: Array = []
+	for affix: AffixData in item.affixes:
+		affixes_arr.append({
+			"stat_id": str(affix.stat_id),
+			"display_name": affix.display_name,
+			"value": affix.value,
+		})
+	return {
+		"base_id": str(item.id),
+		"base_path": item.resource_path,
+		"refinement_level": item.refinement_level,
+		"affixes": affixes_arr,
+	}
+
+
+## Deserializa un Dictionary a ItemData. Carga el .tres base, duplica y aplica overrides.
+## Si el .tres base no existe (el jugador cambió la versión del juego), retorna null con warning.
+func _deserialize_item(item_dict: Dictionary) -> ItemData:
+	var base_path: String = item_dict.get("base_path", "")
+	if base_path == "":
+		push_warning("InventorySystem._deserialize_item: base_path vacío, saltando item.")
+		return null
+
+	if not ResourceLoader.exists(base_path):
+		push_warning("InventorySystem._deserialize_item: '%s' no existe. Item perdido." % base_path)
+		return null
+
+	var base: ItemData = load(base_path) as ItemData
+	if base == null:
+		push_warning("InventorySystem._deserialize_item: '%s' no se pudo cargar como ItemData." % base_path)
+		return null
+
+	var instance: ItemData = base.duplicate(true) as ItemData
+
+	# Aplicar overrides del save: refinement_level siempre.
+	instance.refinement_level = int(item_dict.get("refinement_level", 0))
+
+	# Aplicar afijos si están guardados (la instancia del jugador puede tener afijos modificados).
+	var saved_affixes: Array = item_dict.get("affixes", [])
+	if saved_affixes.size() > 0:
+		var new_affixes: Array[AffixData] = []
+		for aff_dict in saved_affixes:
+			if not aff_dict is Dictionary:
+				continue
+			var aff: AffixData = AffixData.new()
+			aff.stat_id = StringName(str(aff_dict.get("stat_id", "")))
+			aff.display_name = str(aff_dict.get("display_name", ""))
+			aff.value = int(aff_dict.get("value", 0))
+			new_affixes.append(aff)
+		instance.affixes = new_affixes
+
+	return instance
+
+
 # ─── Privado ──────────────────────────────────────────────────────────────────
 
 func _find_equipped_slot(item: ItemData) -> int:

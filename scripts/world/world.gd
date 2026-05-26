@@ -162,6 +162,8 @@ func _spawn_stage(data: StageData) -> void:
 			DropSystem.register_enemy(enemy, entry.material_drops)
 			# Registrar en ExperienceSystem para que dé XP al morir. GDD §6.1.
 			ExperienceSystem.register_enemy(enemy, entry.rarity)
+			# Registrar en GoldSystem para que dé Oro al morir (con mult de Momentum). GDD §5.5.
+			GoldSystem.register_enemy(enemy, entry.rarity)
 			spawn_index += 1
 
 

@@ -27,8 +27,7 @@ class_name CraftResult
 ## Solo se puebla si success=true (nada se consume en un aborto).
 @export var materials_consumed: Dictionary = {}
 
-## Oro consumido. Siempre 0 en Fase 2.
-## TODO (Oro): CraftingSystem lo actualizará cuando GoldSystem esté activo.
+## Oro consumido en el crafteo. Actualizado por CraftingSystem con recipe.gold_cost.
 @export var gold_consumed: int = 0
 
 # ─── Contexto de fallo ────────────────────────────────────────────────────────

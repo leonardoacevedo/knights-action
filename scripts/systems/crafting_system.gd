@@ -11,8 +11,6 @@ extends Node
 # UI futura: conectarse a craft_started / craft_succeeded / craft_aborted.
 # NO tocar UpgradeManager ni DropSystem — sistemas paralelos independientes.
 #
-# TODO (Oro): cuando se implemente GoldSystem, en try_craft() agregar validación
-#   y consumo antes de consumir materiales. Ver comentarios "TODO (Oro)" abajo.
 # TODO (Fusión): la fusión 3xR(n) → 1xR(n+1) es feature separada post-Fase 2.
 #   No va aquí — tendrá su propio FusionSystem.
 # TODO (Recetas desbloqueables): en MVP todas las recetas están disponibles desde
@@ -99,10 +97,12 @@ func get_recipe_by_id(id: StringName) -> CraftRecipe:
 	return null
 
 
-## true si el inventario tiene TODOS los materiales que la receta necesita.
-## No valida oro (pendiente GoldSystem).
+## true si el inventario tiene TODOS los materiales que la receta necesita Y hay oro suficiente.
 func can_craft(recipe: CraftRecipe) -> bool:
 	if recipe == null or not recipe.is_valid():
+		return false
+	# Validar oro primero (falla rápido si no alcanza).
+	if recipe.gold_cost > 0 and not GoldSystem.can_afford(recipe.gold_cost):
 		return false
 	for input: CraftRecipeInput in recipe.inputs:
 		var available: int = _inv().get_material_count(input.material.id)
@@ -132,9 +132,9 @@ func get_missing_materials(recipe: CraftRecipe) -> Dictionary:
 ##
 ## Flujo:
 ##   1. Validación de receta (aborta si null o inválida, sin consumir nada).
-##   2. Validación de materiales (aborta si faltan, sin consumir nada).
-##   3. TODO (Oro): validar y consumir oro cuando GoldSystem esté activo.
-##   4. Emite craft_started.
+##   2. Validación de materiales Y oro vía can_craft() (aborta si faltan, sin consumir nada).
+##   3. Emite craft_started.
+##   4. Consume Oro vía GoldSystem.consume().
 ##   5. Consume materiales atómicamente vía InventorySystem.remove_material().
 ##   6. Agrega output_item al inventario vía InventorySystem.add_item().
 ##   7. Emite craft_succeeded y devuelve CraftResult(success=true).
@@ -150,22 +150,25 @@ func try_craft(recipe: CraftRecipe) -> CraftResult:
 		craft_aborted.emit(aborted)
 		return aborted
 
-	# Validación: materiales suficientes.
-	# Chequeamos todo ANTES de consumir — transacción atómica.
-	if not can_craft(recipe):
+	# Validación: oro suficiente (Pilar #2 — razón de fallo específica).
+	if recipe.gold_cost > 0 and not GoldSystem.can_afford(recipe.gold_cost):
 		var aborted := CraftResult.new()
 		aborted.success = false
-		aborted.reason = "insufficient_materials"
+		aborted.reason = "insufficient_gold"
 		craft_aborted.emit(aborted)
 		return aborted
 
-	# TODO (Oro): cuando GoldSystem exista, agregar aquí:
-	#   if recipe.gold_cost > 0 and not GoldSystem.can_afford(recipe.gold_cost):
-	#       var aborted := CraftResult.new()
-	#       aborted.success = false
-	#       aborted.reason = "insufficient_gold"
-	#       craft_aborted.emit(aborted)
-	#       return aborted
+	# Validación: materiales suficientes.
+	# Chequeamos todo ANTES de consumir — transacción atómica.
+	# can_craft() también valida oro, pero el check explícito arriba ya lo cubrió.
+	for input: CraftRecipeInput in recipe.inputs:
+		var available: int = _inv().get_material_count(input.material.id)
+		if available < input.count:
+			var aborted := CraftResult.new()
+			aborted.success = false
+			aborted.reason = "insufficient_materials"
+			craft_aborted.emit(aborted)
+			return aborted
 
 	# Precondiciones OK. Señal de inicio (UI puede mostrar animación).
 	craft_started.emit(recipe)
@@ -174,18 +177,18 @@ func try_craft(recipe: CraftRecipe) -> CraftResult:
 	var result := CraftResult.new()
 	result.success = true
 	result.output_item = recipe.output_item
-	result.gold_consumed = 0  # TODO: recipe.gold_cost cuando GoldSystem esté activo.
+	result.gold_consumed = 0
+
+	# Consumir Oro (antes de materiales — si por algún bug falla, no perdemos materiales).
+	if recipe.gold_cost > 0:
+		GoldSystem.consume(recipe.gold_cost)
+		result.gold_consumed = recipe.gold_cost
 
 	# Consumir materiales. remove_material es atómico — no puede fallar a medias
 	# porque ya validamos disponibilidad arriba y el inventario MVP es ilimitado.
 	for input: CraftRecipeInput in recipe.inputs:
 		_inv().remove_material(input.material.id, input.count)
 		result.materials_consumed[input.material.id] = input.count
-
-	# TODO (Oro): descomentar cuando GoldSystem esté activo:
-	#   if recipe.gold_cost > 0:
-	#       GoldSystem.consume(recipe.gold_cost)
-	#       result.gold_consumed = recipe.gold_cost
 
 	# Agregar item al inventario. add_item devuelve la instancia duplicada —
 	# actualizar result para que output_item apunte a la copia en el inventario,

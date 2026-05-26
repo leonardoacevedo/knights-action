@@ -25,7 +25,7 @@ const FURIA_PER_LEVEL: int = 2    # +2 Furia max por nivel
 
 # ─── Costo de respec ──────────────────────────────────────────────────────────
 
-const RESPEC_GOLD_COST: int = 0                  # TODO: sistema de Oro (Fase 3+)
+const RESPEC_GOLD_COST: int = 500                 # GDD §6. Bajo para fomentar experimentación (Pilar #1).
 const RESPEC_MATERIAL_ID: StringName = &"hierba_antigua"
 const RESPEC_MATERIAL_COUNT: int = 10
 
@@ -172,15 +172,23 @@ func unlock_node(node_id: StringName) -> bool:
 
 
 ## Resetea todos los nodos desbloqueados y devuelve los puntos invertidos.
-## Cobra el costo en materiales. Retorna true si tuvo éxito.
+## Cobra el costo en materiales y Oro. Retorna true si tuvo éxito.
+## Atómico: valida oro Y materiales antes de consumir cualquiera de los dos.
 func respec() -> bool:
 	var inv := _get_inv()
 	if inv == null:
 		push_error("PlayerProgression.respec(): inventario no disponible")
 		return false
+	# Verificar Oro primero (falla rápido sin tocar materiales).
+	if RESPEC_GOLD_COST > 0 and not GoldSystem.can_afford(RESPEC_GOLD_COST):
+		return false
 	# Verificar materiales antes de tocar estado.
 	if not _can_afford_respec(inv):
 		return false
+	# Consumir Oro (antes de materiales — si falla materiales después, ya se consumió oro;
+	# pero can_afford pasó así que remove_material no puede fallar con stock correcto).
+	if RESPEC_GOLD_COST > 0:
+		GoldSystem.consume(RESPEC_GOLD_COST)
 	# Consumir materiales.
 	if RESPEC_MATERIAL_COUNT > 0:
 		var ok: bool = inv.remove_material(RESPEC_MATERIAL_ID, RESPEC_MATERIAL_COUNT)
@@ -256,6 +264,39 @@ func reset(quiet: bool = true) -> void:
 	_unlocked_nodes.clear()
 	if not quiet:
 		stats_changed.emit()
+
+
+# ─── Serialización para SaveSystem ───────────────────────────────────────────
+
+## Retorna un Dictionary con el estado persistible. Llamado por SaveSystem.
+func _serialize_state() -> Dictionary:
+	var node_ids: Array = []
+	for id: StringName in _unlocked_nodes:
+		node_ids.append(str(id))
+	return {
+		"level": _level,
+		"xp": _xp,
+		"skill_points": _skill_points_available,
+		"unlocked_nodes": node_ids,
+	}
+
+
+## Restaura el estado desde un Dictionary guardado. Llamado por SaveSystem en _ready.
+## No emite signals de UI (los listeners aún no existen al iniciar).
+func _restore_state(data: Dictionary) -> void:
+	_level = int(data.get("level", 1))
+	_level = clampi(_level, 1, LEVEL_MAX)
+	_xp = int(data.get("xp", 0))
+	_xp = maxi(0, _xp)
+	_skill_points_available = int(data.get("skill_points", 0))
+	_skill_points_available = maxi(0, _skill_points_available)
+	_unlocked_nodes.clear()
+	var saved_nodes: Array = data.get("unlocked_nodes", [])
+	for raw in saved_nodes:
+		if raw is String or raw is StringName:
+			_unlocked_nodes.append(StringName(str(raw)))
+	# Emitir stats_changed para que PlayerStatsComponent recalcule cuando esté listo.
+	stats_changed.emit()
 
 
 # ─── Privado — Inventario ─────────────────────────────────────────────────────

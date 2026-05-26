@@ -25,5 +25,5 @@ display_name = "Forjar Cota de Cuero"
 description = "Cuero curtido con extractos del Valle. Protección básica para cualquier guerrero que empiece."
 inputs = [SubResource("Input_hierba"), SubResource("Input_savia")]
 output_item = ExtResource("7_output")
-gold_cost = 0
+gold_cost = 200
 required_player_level = 1

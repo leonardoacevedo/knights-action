@@ -501,8 +501,8 @@ func _trigger_fuego_aoe() -> void:
 	query.collide_with_bodies = false
 
 	var hits: Array[Dictionary] = space_state.intersect_shape(query, 16)
-	for hit in hits:
-		var collider := hit.get("collider")
+	for hit: Dictionary in hits:
+		var collider: Object = hit.get("collider")
 		if collider is HurtboxComponent:
 			var hb: HurtboxComponent = collider
 			if hb.team == team:
@@ -532,7 +532,9 @@ func _on_dash_ended() -> void:
 		return
 	# Golpe Tras Dash: buff si skill desbloqueado. El bonus real viene del skill_pct.
 	if prog.is_unlocked(&"agil_golpe_tras_dash"):
-		_post_dash_damage_mult = prog.get_skill_bonus_pct(SkillEffect.Stat.DAMAGE_PCT)
+		# Solo el bonus específico del skill, NO suma DAMAGE_PCT global (evita double-count
+		# con bonus permanente de otros skills como espiritu_marcial / sombra_del_valle).
+		_post_dash_damage_mult = prog.get_skill_bonus_pct(SkillEffect.Stat.POST_DASH_DAMAGE_PCT)
 		_post_dash_damage_timer = POST_DASH_DAMAGE_BUFF_DURATION
 	# Sombra del Valle: buff si skill desbloqueado.
 	if prog.is_unlocked(&"agil_sombra_del_valle"):

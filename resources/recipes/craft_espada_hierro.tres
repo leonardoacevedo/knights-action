@@ -31,5 +31,5 @@ display_name = "Forjar Espada de Hierro"
 description = "Hierro templado con savia del Valle. El primer salto real de daño para un guerrero."
 inputs = [SubResource("Input_hierba"), SubResource("Input_savia"), SubResource("Input_piedra")]
 output_item = ExtResource("8_output")
-gold_cost = 0
+gold_cost = 200
 required_player_level = 1

@@ -21,6 +21,11 @@ class_name HudCombat
 @onready var _furia_label: Label = $StatsContainer/FuriaRow/FuriaLabel
 @onready var _shield_display: ShieldChargesDisplay = $StatsContainer/ShieldRow/ShieldChargesDisplay
 
+# Label de Oro — minimal placeholder. Agregar nodo Label "GoldLabel" en hud_combat.tscn
+# para que este @onready lo encuentre. Se asigna en _ready con get_node_or_null
+# para no crashear si el nodo no existe todavía (polish Fase 5).
+var _gold_label: Label = null
+
 const COLOR_LOW := Color(1, 1, 1, 1)            # blanco, niveles 0-4
 const COLOR_MID := Color(1, 0.72, 0.18, 1)      # naranja cálido, niveles 5-7
 const COLOR_HIGH := Color(1, 0.32, 0.12, 1)     # rojo intenso, niveles 8-10
@@ -36,6 +41,11 @@ func _ready() -> void:
 	# Conectar Momentum global.
 	MomentumSystem.momentum_changed.connect(_on_momentum_changed)
 	_apply_momentum_visual(0)
+
+	# Conectar Oro global — actualiza label si el nodo existe en el .tscn.
+	_gold_label = get_node_or_null("StatsContainer/GoldLabel") as Label
+	GoldSystem.gold_changed.connect(_on_gold_changed)
+	_update_gold_label(GoldSystem.get_gold())
 
 	# Guardamos el ancho base de las barras para escalar después.
 	_hp_bar_base_width = _hp_bar_fg.size.x
@@ -98,3 +108,13 @@ func _on_shield_charges_changed(current: int, maximum: int) -> void:
 	if _shield_display == null:
 		return
 	_shield_display.set_charges(current, maximum)
+
+
+func _on_gold_changed(new_total: int, _delta: int) -> void:
+	_update_gold_label(new_total)
+
+
+func _update_gold_label(total: int) -> void:
+	if _gold_label == null:
+		return  # nodo no agregado al .tscn todavía — sin crash
+	_gold_label.text = "Oro: %d" % total

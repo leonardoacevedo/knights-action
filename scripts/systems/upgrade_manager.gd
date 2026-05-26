@@ -16,18 +16,18 @@ extends Node
 #   success_chance  — probabilidad entre 0.0 y 1.0.
 #   penalty         — "none" / "materials_only" / "level_loss".
 #   stones          — Piedras de Resonancia por intento (siempre 1 en MVP).
-#   gold            — Oro por intento. Siempre 0 hasta implementar sistema de Oro.
+#   gold            — Oro por intento. Consumido por GoldSystem.consume() en attempt_refine.
 const REFINE_TABLE: Dictionary = {
-	1:  { "success_chance": 1.00, "penalty": "none",           "stones": 1, "gold": 0 },
-	2:  { "success_chance": 1.00, "penalty": "none",           "stones": 1, "gold": 0 },
-	3:  { "success_chance": 1.00, "penalty": "none",           "stones": 1, "gold": 0 },
-	4:  { "success_chance": 0.70, "penalty": "materials_only", "stones": 1, "gold": 0 },
-	5:  { "success_chance": 0.70, "penalty": "materials_only", "stones": 1, "gold": 0 },
-	6:  { "success_chance": 0.50, "penalty": "materials_only", "stones": 1, "gold": 0 },
-	7:  { "success_chance": 0.50, "penalty": "materials_only", "stones": 1, "gold": 0 },
-	8:  { "success_chance": 0.30, "penalty": "level_loss",     "stones": 1, "gold": 0 },
-	9:  { "success_chance": 0.20, "penalty": "level_loss",     "stones": 1, "gold": 0 },
-	10: { "success_chance": 0.10, "penalty": "level_loss",     "stones": 1, "gold": 0 },
+	1:  { "success_chance": 1.00, "penalty": "none",           "stones": 1, "gold": 10 },
+	2:  { "success_chance": 1.00, "penalty": "none",           "stones": 1, "gold": 20 },
+	3:  { "success_chance": 1.00, "penalty": "none",           "stones": 1, "gold": 40 },
+	4:  { "success_chance": 0.70, "penalty": "materials_only", "stones": 1, "gold": 80 },
+	5:  { "success_chance": 0.70, "penalty": "materials_only", "stones": 1, "gold": 160 },
+	6:  { "success_chance": 0.50, "penalty": "materials_only", "stones": 1, "gold": 320 },
+	7:  { "success_chance": 0.50, "penalty": "materials_only", "stones": 1, "gold": 640 },
+	8:  { "success_chance": 0.30, "penalty": "level_loss",     "stones": 1, "gold": 1000 },
+	9:  { "success_chance": 0.20, "penalty": "level_loss",     "stones": 1, "gold": 2000 },
+	10: { "success_chance": 0.10, "penalty": "level_loss",     "stones": 1, "gold": 4000 },
 }
 
 # IDs de materiales consumidos por refinamiento. GDD §5.5-5.6.
@@ -94,7 +94,7 @@ func get_penalty_type(target_level: int) -> String:
 
 
 ## Costo en materiales y oro para el nivel objetivo.
-## Retorna {"stones": N, "gold": N}. Gold siempre 0 hasta implementar Oro.
+## Retorna {"stones": N, "gold": N}.
 func get_cost(target_level: int) -> Dictionary:
 	if not REFINE_TABLE.has(target_level):
 		return { "stones": 0, "gold": 0 }
@@ -134,15 +134,14 @@ func _inv() -> Object:
 ## use_protection_scroll: el jugador quiere usar un Pergamino para proteger contra downgrade.
 ##
 ## Flujo:
-##   1. Validaciones (aborta sin consumir materiales si falla).
-##   2. Consume materiales (Piedra + Pergamino si aplica).
-##   3. RNG según tabla.
-##   4. Aplica resultado al item.
-##   5. Emite signal correspondiente.
-##   6. Devuelve RefineResult.
+##   1. Validaciones (aborta sin consumir nada si falla — incluyendo oro insuficiente).
+##   2. Consume Oro (GoldSystem.consume — siempre, sea éxito o fallo).
+##   3. Consume materiales (Piedra + Pergamino si aplica — siempre).
+##   4. RNG según tabla.
+##   5. Aplica resultado al item.
+##   6. Emite signal correspondiente.
+##   7. Devuelve RefineResult.
 ##
-## TODO (Oro): cuando se implemente GoldSystem, agregar antes del paso 2:
-##   if not GoldSystem.consume(row["gold"]): refine_aborted.emit("insufficient_gold"); return null
 func attempt_refine(item: ItemData, use_protection_scroll: bool = false) -> RefineResult:
 	# Validación: item válido.
 	if item == null:
@@ -162,6 +161,12 @@ func attempt_refine(item: ItemData, use_protection_scroll: bool = false) -> Refi
 		refine_aborted.emit("scroll_not_applicable")
 		return null
 
+	# Validación: oro suficiente (antes de consumir materiales — atómica).
+	var gold_needed: int = row["gold"]
+	if not GoldSystem.can_afford(gold_needed):
+		refine_aborted.emit("insufficient_gold")
+		return null
+
 	# Validación: materiales suficientes (transacción atómica — chequeamos antes de consumir).
 	var stones_needed: int = row["stones"]
 	if _inv().get_material_count(ID_PIEDRA) < stones_needed:
@@ -173,6 +178,9 @@ func attempt_refine(item: ItemData, use_protection_scroll: bool = false) -> Refi
 
 	# A partir de acá: intento confirmado. Emitir signal de inicio.
 	refine_started.emit(item, target_level)
+
+	# Consumir Oro (siempre, sea éxito o fallo — igual que las Piedras).
+	GoldSystem.consume(gold_needed)
 
 	# Consumir Piedra de Resonancia (siempre, sea éxito o fallo).
 	_inv().remove_material(ID_PIEDRA, stones_needed)
@@ -189,7 +197,7 @@ func attempt_refine(item: ItemData, use_protection_scroll: bool = false) -> Refi
 	result.materials_consumed[ID_PIEDRA] = stones_needed
 	if use_protection_scroll:
 		result.materials_consumed[ID_PERGAMINO] = 1
-	result.gold_consumed = 0  # TODO: vincular a GoldSystem cuando esté implementado.
+	result.gold_consumed = gold_needed
 
 	# RNG — o resultado forzado para tests.
 	var succeeded: bool

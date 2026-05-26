@@ -29,6 +29,8 @@ CameraShake="*res://scripts/systems/camera_shake.gd"
 PlayerProgression="*res://scripts/systems/player_progression.gd"
 ExperienceSystem="*res://scripts/systems/experience_system.gd"
 SetBonusSystem="*res://scripts/systems/set_bonus_system.gd"
+GoldSystem="*res://scripts/systems/gold_system.gd"
+SaveSystem="*res://scripts/systems/save_system.gd"
 
 [input]
 

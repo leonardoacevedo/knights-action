@@ -31,5 +31,5 @@ display_name = "Conjurar Vara de Cristal"
 description = "La Esencia del Verdor condensa en cristal bajo la presión de las Piedras. Requiere materiales raros del Valle profundo."
 inputs = [SubResource("Input_savia"), SubResource("Input_esencia"), SubResource("Input_piedra")]
 output_item = ExtResource("8_output")
-gold_cost = 0
+gold_cost = 800
 required_player_level = 1
