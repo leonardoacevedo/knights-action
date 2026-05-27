@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SetBonusData" load_steps=2 format=3 uid="uid://set_bonus_viento"]
+
+[ext_resource type="Script" path="res://scripts/data/set_bonus_data.gd" id="1_set_bonus_data"]
+
+[resource]
+script = ExtResource("1_set_bonus_data")
+element = 4
+bonus_2pc_name = "Andar Ligero"
+bonus_2pc_description = "+10% velocidad de movimiento."
+damage_multiplier_2pc = 1.0
+furia_regen_per_sec_2pc = 0.0
+hp_multiplier_2pc = 1.0
+viento_move_speed_pct_2pc = 0.10
+bonus_3pc_name = "Brisa Cortante"
+bonus_3pc_description = "Chance de aplicar Desequilibrio aumentada ×1.5 (de 30% a 45%)."
+fuego_aoe_radius = 0.0
+fuego_aoe_damage_pct = 0.0
+agua_dash_reset_on_pass = false
+tierra_block_restores_charge = false
+viento_desequilibrio_chance_mult_3pc = 1.5

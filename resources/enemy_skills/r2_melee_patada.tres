@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_melee_patada"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_melee_patada"
+enemy_class = 0
+telegraph_sec = 0.3
+cd_min = 4.0
+cd_max = 6.0
+attack_duration = 0.3
+damage_mult = 0.5
+telegraph_type = &"windup"
+params = {
+"hitbox_active": 0.12,
+"knockback_x": 120.0,
+"knockback_y": -120.0,
+}
+display_name = "Patada Frontal"
+description = "Melee R2 alt (Set C): rango corto + knockback fuerte. Low dmg pero crea espacio agresivo. Reusable como R1 variant si Leo quiere telegrafía aún más corta."

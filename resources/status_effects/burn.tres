@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://status_burn"]
+
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+id = &"burn"
+duration = 3.0
+magnitude = 3.0
+tick_interval = 0.5
+stack_mode = 0
+magnitude_policy = 0
+display_name = "Quemadura"
+color = Color(1, 0.4, 0.1, 1)

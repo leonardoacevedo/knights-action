@@ -16,8 +16,13 @@ signal hit_landed(target_hurtbox: HurtboxComponent)
 var damage: int = 10
 var team: int = 0
 ## Elemento del atacante (del shooter). Propagado al receive_hit para el modifier elemental.
-## Usar valores de ItemData.Element: NEUTRO=0, FUEGO=1, AGUA=2, TIERRA=3.
+## Usar valores de ItemData.Element: NEUTRO=0, FUEGO=1..3, VIENTO=4, LUZ=5, SOMBRA=6.
 var element: int = 0  # ItemData.Element.NEUTRO
+
+## Referencia a la entidad que disparó el proyectil (Player/Enemy/Boss). Opcional.
+## Usado por LUZ vampire heal (Bendición Divina) para curar al shooter al impactar.
+## Setear con `set_source(entity)` antes de add_child al árbol.
+var source_entity: Node = null
 
 var _direction: Vector2 = Vector2.RIGHT
 var _time_alive: float = 0.0
@@ -67,6 +72,26 @@ func launch(direction: Vector2, damage_amount: int, team_id: int, attacker_eleme
 	team = team_id
 	element = attacker_element
 	rotation = _direction.angle()
+
+
+## API opcional para registrar la entidad que disparó. Habilita LUZ vampire heal.
+## Llamar antes de add_child al árbol.
+func set_source(entity: Node) -> void:
+	source_entity = entity
+
+
+## Refleja el proyectil: cambia team + source + opcionalmente direction.
+## Usado por Lyss boss "Muralla Estática" para devolver proyectiles del player.
+## Resetea `_pierce_hit_set` para que pueda golpear targets nuevos del nuevo team.
+func reflect(new_team: int, new_source: Node, new_direction: Vector2 = Vector2.ZERO) -> void:
+	team = new_team
+	source_entity = new_source
+	_pierce_hit_set.clear()
+	if new_direction != Vector2.ZERO:
+		_direction = new_direction.normalized()
+		rotation = _direction.angle()
+	# Visual: tinte distinto para legibilidad (player ve venir su flecha de vuelta).
+	modulate = Color(1.4, 1.0, 0.6, 1.0)
 
 
 ## Activa el modo AoE on-impact. Llamar antes de add_child al árbol.
@@ -119,6 +144,7 @@ func _on_area_entered(area: Area2D) -> void:
 		was_advantage = -1
 	hurtbox.receive_hit(final_damage, null, was_advantage)
 	hit_landed.emit(hurtbox)
+	_try_apply_element_status(hurtbox)
 
 	# ── Modo Pierce ─────────────────────────────────────────────────────────
 	if pierce_enemies:
@@ -211,3 +237,108 @@ func _on_trail_cleanup() -> void:
 	var tween: Tween = _pierce_trail.create_tween()
 	tween.tween_property(_pierce_trail, "modulate:a", 0.0, 0.2)
 	tween.tween_callback(_pierce_trail.queue_free)
+
+
+# ─── Element → Status synergy (6 elementos canon 27/05, eje cósmico) ────────
+# FUEGO=Quemadura · AGUA=Congelación · TIERRA=Fractura · VIENTO=Desequilibrio
+# LUZ=Bendición (vampire heal source) · SOMBRA=Miasma (DOT bypass armor)
+
+const ELEMENT_STATUS_CHANCE_BASE: float = 0.30
+const STATUS_BURN: StatusEffectData = preload("res://resources/status_effects/burn.tres")
+const STATUS_FREEZE: StatusEffectData = preload("res://resources/status_effects/freeze.tres")
+const STATUS_FRACTURA: StatusEffectData = preload("res://resources/status_effects/vulnerable.tres")
+const STATUS_DESEQUILIBRIO: StatusEffectData = preload("res://resources/status_effects/desequilibrio.tres")
+const STATUS_BENDICION: StatusEffectData = preload("res://resources/status_effects/bendicion.tres")
+const STATUS_MIASMA: StatusEffectData = preload("res://resources/status_effects/poison.tres")
+
+
+func _try_apply_element_status(hurtbox: HurtboxComponent) -> void:
+	if element == 0:
+		return
+	if randf() > _get_element_status_chance(element):
+		return
+	# LUZ (eje cósmico): vampire heal al shooter, no status al defender.
+	if element == 5:
+		_apply_bendicion_heal_to_source()
+		return
+	var defender: Node = hurtbox.get_parent()
+	if defender == null:
+		return
+	var se: StatusEffectComponent = defender.get_node_or_null("StatusEffects") as StatusEffectComponent
+	if se == null:
+		return
+	var data: StatusEffectData = null
+	var duration_override: float = NAN
+	match element:
+		1: data = STATUS_BURN          # FUEGO — Quemadura
+		2: data = STATUS_FREEZE        # AGUA — Congelación
+		3: data = STATUS_FRACTURA      # TIERRA — Fractura
+		4: data = STATUS_DESEQUILIBRIO # VIENTO — Desequilibrio
+		6:
+			data = STATUS_MIASMA        # SOMBRA — Miasma
+			var dur_mult: float = _get_miasma_duration_mult()
+			if dur_mult != 1.0:
+				duration_override = data.duration * dur_mult
+	if data != null:
+		se.apply(data, self, NAN, duration_override)
+
+
+## LUZ vampire heal (Bendición): cura source_entity X% HP máx. Mult por LUZ 3pc.
+const PROJECTILE_BENDICION_HEAL_PCT_BASE: float = 0.05
+func _apply_bendicion_heal_to_source() -> void:
+	if source_entity == null or not is_instance_valid(source_entity):
+		return
+	var hp: HealthComponent = source_entity.get_node_or_null("HealthComponent") as HealthComponent
+	if hp == null or not hp.is_alive():
+		return
+	var heal_amt: int = int(round(float(hp.max_health) * _get_bendicion_heal_pct()))
+	if heal_amt > 0:
+		hp.heal(heal_amt)
+
+
+# ─── SetBonus query helpers (mismo patrón que HitboxComponent) ──────────────
+
+func _get_element_status_chance(elem: int) -> float:
+	var base: float = ELEMENT_STATUS_CHANCE_BASE
+	if team != 1:
+		return base
+	var sbs: Node = get_node_or_null("/root/SetBonusSystem")
+	if sbs == null:
+		return base
+	var data: SetBonusData = sbs.get_active_bonus_data() if sbs.has_method("get_active_bonus_data") else null
+	if data == null:
+		return base
+	if elem == 4 and sbs.is_active(4, 3):
+		return base * data.viento_desequilibrio_chance_mult_3pc
+	if elem == 6 and sbs.is_active(6, 3):
+		return base * data.sombra_miasma_chance_mult_3pc
+	return base
+
+
+func _get_bendicion_heal_pct() -> float:
+	var base: float = PROJECTILE_BENDICION_HEAL_PCT_BASE
+	if team != 1:
+		return base
+	var sbs: Node = get_node_or_null("/root/SetBonusSystem")
+	if sbs == null:
+		return base
+	var data: SetBonusData = sbs.get_active_bonus_data() if sbs.has_method("get_active_bonus_data") else null
+	if data == null:
+		return base
+	if sbs.is_active(5, 3):
+		return base * data.luz_bendicion_heal_mult_3pc
+	return base
+
+
+func _get_miasma_duration_mult() -> float:
+	if team != 1:
+		return 1.0
+	var sbs: Node = get_node_or_null("/root/SetBonusSystem")
+	if sbs == null:
+		return 1.0
+	var data: SetBonusData = sbs.get_active_bonus_data() if sbs.has_method("get_active_bonus_data") else null
+	if data == null:
+		return 1.0
+	if sbs.is_active(6, 2):
+		return data.sombra_miasma_duration_mult_2pc
+	return 1.0

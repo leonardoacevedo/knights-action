@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="CraftRecipe" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/craft_recipe.gd" id="1_recipe"]
+[ext_resource type="Script" path="res://scripts/data/craft_recipe_input.gd" id="2_input"]
+[ext_resource type="Resource" path="res://resources/materials/fragmento_ascuas.tres" id="3_ascuas"]
+[ext_resource type="Resource" path="res://resources/materials/mineral_hierro_rojo.tres" id="4_hierro"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_igneo.tres" id="5_nucleo"]
+[ext_resource type="Resource" path="res://resources/items/armor/peto_brasas.tres" id="6_output"]
+
+[sub_resource type="Resource" id="Input_ascuas"]
+script = ExtResource("2_input")
+material = ExtResource("3_ascuas")
+count = 8
+
+[sub_resource type="Resource" id="Input_hierro"]
+script = ExtResource("2_input")
+material = ExtResource("4_hierro")
+count = 3
+
+[sub_resource type="Resource" id="Input_nucleo"]
+script = ExtResource("2_input")
+material = ExtResource("5_nucleo")
+count = 1
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_peto_brasas"
+display_name = "Forjar Peto de Brasas"
+description = "Set Brasas (FUEGO 2pc afinidad). Coraza forjada en la Fragua Cenicienta con materiales de zona 2."
+inputs = [SubResource("Input_ascuas"), SubResource("Input_hierro"), SubResource("Input_nucleo")]
+output_item = ExtResource("6_output")
+gold_cost = 450
+required_player_level = 12

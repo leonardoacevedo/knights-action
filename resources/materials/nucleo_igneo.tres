@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3 uid="uid://mat_nucleo_igneo"]
+
+[ext_resource type="Script" path="res://scripts/data/material_data.gd" id="1_matdata"]
+
+[resource]
+script = ExtResource("1_matdata")
+id = &"nucleo_igneo"
+display_name = "Núcleo Ígneo"
+description = "El corazón de un forjador caído. Late como brasa viva — material crítico para armas de Fuego R3+."
+rarity = 2
+max_stack = 99

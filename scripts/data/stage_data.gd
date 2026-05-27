@@ -31,6 +31,17 @@ class_name StageData
 ## El boss se spawnea desde `spawns` (que debería contener una sola entry R4).
 @export var is_boss: bool = false
 
+## Si está ON, este stage es un mini-boss (intermedio, R3 elite). UI banner muestra
+## "MINI-BOSS" en lugar de "ETAPA N". No es un boss completo — sin item_drops garantizados.
+## Usado por Zona 4 etapa 3 (Capitán de los Vientos).
+@export var is_mini_boss: bool = false
+
+## Override del boss scene a usar cuando is_boss=true. Si null, world.gd cae al
+## routing por clase (Tank=Guardián, Melee=Duelista, etc.). Útil para zonas con
+## bosses propios (Ignis zona 2, Lyss zona 3, Vael zona 4 — comparten clase con
+## bosses ya existentes pero son enemies distintos).
+@export var boss_scene_override: PackedScene
+
 # ─── Drops ────────────────────────────────────────────────────────────────────
 
 ## DropTable de materiales usada como fallback cuando un EnemySpawnEntry no tiene

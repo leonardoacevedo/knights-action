@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://status_espiritu_marcial"]
+
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+id = &"espiritu_marcial"
+duration = 2.0
+magnitude = 0.20
+tick_interval = 0.0
+stack_mode = 1
+magnitude_policy = 0
+display_name = "Espíritu Marcial"
+color = Color(0.55, 0.85, 1, 1)

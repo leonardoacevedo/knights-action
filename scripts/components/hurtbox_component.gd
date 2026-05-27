@@ -39,7 +39,7 @@ var scene_root: Node = null
 ## Elemento de este entity (defensor). Usado por HitboxComponent para calcular
 ## el modifier elemental antes de llamar receive_hit.
 ## Usar valores de ItemData.Element: NEUTRO=0, FUEGO=1, AGUA=2, TIERRA=3.
-@export_enum("Neutro:0", "Fuego:1", "Agua:2", "Tierra:3") var element: int = 0
+@export_enum("Neutro:0", "Fuego:1", "Agua:2", "Tierra:3", "Viento:4", "Luz:5", "Sombra:6") var element: int = 0
 
 ## Referencia al tank R2 que está absorbiendo el 100% del daño recibido (Taunt skill MMO clásico).
 ## Null cuando no hay taunt activo. Seteado por Enemy._start_taunt() y limpiado en _end_taunt().
@@ -65,8 +65,18 @@ func receive_hit(amount: int, source: HitboxComponent = null, was_advantage: int
 	if health_component == null:
 		push_warning("HurtboxComponent sin health_component asignado: %s" % get_path())
 		return
+	# Invuln direccional (Tank R3 "Muralla Estática"): bloquea ataques frontales si
+	# el atacante está delante del defensor según su `current_facing`. Source debe ser
+	# un HitboxComponent con dueño que tenga global_position; sino, regla no aplica.
+	if _is_blocked_by_directional_invuln(source):
+		if scene_root != null:
+			DamageFloater.spawn_text(scene_root, health_component.get_parent().global_position \
+				+ Vector2(0, -70), "BLOCK!", Color(0.6, 0.85, 1.0, 1.0))
+		return
 	# Bloqueo: si el shield absorbe, NO descontamos HP y avisamos al owner.
-	if shield != null and shield.try_absorb():
+	# Excepción: si source.ignore_shield (pool §4 Arma Imbuida), saltea el shield.
+	var bypass_shield: bool = source != null and source.ignore_shield
+	if not bypass_shield and shield != null and shield.try_absorb():
 		hit_blocked.emit(amount, source)
 		return
 	# Esquiva física (skill Esquiva Instintiva). Solo aplica al daño base —
@@ -79,6 +89,13 @@ func receive_hit(amount: int, source: HitboxComponent = null, was_advantage: int
 		return  # daño esquivado — no se aplica
 	# Defensa flat reduce daño. Mínimo garantizado: 1. Fórmula: formulas.md §Equipamiento.
 	var mitigated: int = max(1, amount - flat_defense)
+	# FRACTURA (TIERRA): el próximo golpe recibido hace +20% daño. Single-use.
+	# Tras aplicar el multiplicador, se consume el status. Window 5s.
+	var se: StatusEffectComponent = _get_owner_status_effects()
+	if se != null and se.has(&"fractura"):
+		mitigated = int(round(float(mitigated) * (1.0 + se.get_magnitude(&"fractura"))))
+		mitigated = max(1, mitigated)
+		se.remove(&"fractura")
 
 	# TAUNT MMO clásico: si hay tank con taunt activo, redirigir 100% del daño al tank.
 	# El aliado parpadea visualmente pero NO recibe HP. El tank recibe daño completo
@@ -110,3 +127,33 @@ func receive_hit(amount: int, source: HitboxComponent = null, was_advantage: int
 
 func set_invulnerable(value: bool) -> void:
 	invulnerable = value
+
+
+# ─── Invuln direccional (Tank R3 Muralla Estática) ────────────────────────────
+
+## Si el dueño está en "muralla_estatica" status, bloquea ataques que vengan de
+## su frente (mismo signo que current_facing). Por la espalda entran normales.
+## Source con dueño null o sin facing → no aplica regla (regresa false).
+func _is_blocked_by_directional_invuln(source: HitboxComponent) -> bool:
+	if source == null:
+		return false
+	var se: StatusEffectComponent = _get_owner_status_effects()
+	if se == null or not se.has(&"muralla_estatica"):
+		return false
+	var defender: Node = health_component.get_parent() if health_component != null else null
+	if defender == null or not (defender is Node2D):
+		return false
+	var defender_facing: int = int(defender.get("current_facing")) if defender.get("current_facing") != null else 1
+	var attacker_pos: Vector2 = source.global_position
+	var dx: float = attacker_pos.x - (defender as Node2D).global_position.x
+	# Frontal = mismo signo que facing. Si dx≈0, tratamos como frontal (cara a cara).
+	if abs(dx) < 1.0:
+		return true
+	return sign(dx) == sign(defender_facing)
+
+
+func _get_owner_status_effects() -> StatusEffectComponent:
+	var owner_node: Node = get_parent()
+	if owner_node == null:
+		return null
+	return owner_node.get_node_or_null("StatusEffects") as StatusEffectComponent

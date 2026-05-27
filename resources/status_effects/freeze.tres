@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://status_freeze"]
+
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+id = &"freeze"
+duration = 2.0
+magnitude = 0.7
+tick_interval = 0.0
+stack_mode = 0
+magnitude_policy = 1
+display_name = "Congelación"
+color = Color(0.5, 0.9, 1, 1)

@@ -20,10 +20,15 @@ enum Rarity {
 }
 
 enum Element {
-	NEUTRO,
-	FUEGO,
-	AGUA,
-	TIERRA,
+	NEUTRO, # 0
+	# Eje natural — control + daño elemental puro. Triángulo: FUEGO>TIERRA>AGUA>FUEGO + VIENTO neutral cross.
+	FUEGO,  # 1 — Synergy: Quemadura (DOT 3s rápido).
+	AGUA,   # 2 — Synergy: Congelación (-30% velocidad / 2s).
+	TIERRA, # 3 — Synergy: Fractura (próximo golpe recibido +20% dmg, single-use, window 5s).
+	VIENTO, # 4 — Synergy: Desequilibrio (interrumpe ataque actual + 1.5s CD penalty).
+	# Eje cósmico — alteración de stats, supervivencia, maldiciones. Triángulo: VIENTO>LUZ>SOMBRA>VIENTO.
+	LUZ,    # 5 — Synergy: Bendición Divina (vampire heal 5% HP máx al atacante).
+	SOMBRA, # 6 — Synergy: Miasma (DOT 5s bypass armor + -50% generación Furia, stack INDEPENDENT).
 }
 
 # ─── Identidad ────────────────────────────────────────────────────────────────

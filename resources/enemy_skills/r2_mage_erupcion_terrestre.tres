@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_mage_erupcion"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_mage_erupcion_terrestre"
+enemy_class = 3
+telegraph_sec = 0.9
+cd_min = 9.0
+cd_max = 11.0
+attack_duration = 0.8
+damage_mult = 1.5
+telegraph_type = &"aoe_ground_pillar"
+params = {
+"telegraph_time": 0.5,
+"radius": 50.0,
+"apply_fractura": true,
+}
+display_name = "Erupción Terrestre"
+description = "Mage R3 alt (Set C): pilar vertical desde suelo bajo player. AoeTelegraph + spawn hitbox circular 50px tras 0.5s + aplica FRACTURA al impactar (TIERRA themático). No tracking — single drop fijo."

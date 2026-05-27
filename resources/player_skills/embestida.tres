@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PlayerSkillData" format=3 uid="uid://player_skill_embestida"]
+
+[ext_resource type="Script" path="res://scripts/data/player_skill_data.gd" id="1_pskill"]
+
+[resource]
+script = ExtResource("1_pskill")
+id = &"embestida"
+display_name = "Embestida"
+description = "Impulso horizontal hacia el facing + buff de daño ×1.5 al próximo swing (0.4s)."
+cost_furia = 30
+cooldown = 4.0
+effect_type = 4
+params = {
+"distance": 220.0,
+"damage_mult": 1.5,
+}
+color = Color(1.0, 0.7, 0.2, 1)

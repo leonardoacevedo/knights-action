@@ -258,6 +258,22 @@ func _apply_set_bonus(weapon: ItemData, armor: ItemData, shield: ItemData) -> vo
 	var regen: float = data.furia_regen_per_sec_2pc if pieces >= 2 else 0.0
 	_update_furia_regen(regen)
 
+	# ── 2pc: LUZ passive HP regen ───────────────────────────────────────────
+	var luz_hp_regen: float = data.luz_passive_hp_regen_2pc if pieces >= 2 else 0.0
+	_update_luz_passive_regen(luz_hp_regen)
+
+	# ── 2pc: VIENTO bump move_speed_mult ────────────────────────────────────
+	# Aplica sobre el move_speed_mult ya seteado en _apply_movement_skills.
+	# _apply_set_bonus corre DESPUÉS de _apply_movement_skills en recalculate().
+	# Acá hacemos un segundo pase multiplicativo sobre player.move_speed_mult.
+	if data.viento_move_speed_pct_2pc != 0.0 and pieces >= 2:
+		var player: Node = get_parent()
+		if player != null and player.has_method("set_move_speed_mult"):
+			# player.move_speed_mult ya fue seteado por _apply_movement_skills al valor de skill.
+			# Multiplicamos encima: skill_mult × (1 + set_bonus_pct).
+			var current_mult: float = float(player.get("move_speed_mult")) if player.get("move_speed_mult") != null else 1.0
+			player.set_move_speed_mult(current_mult * (1.0 + data.viento_move_speed_pct_2pc))
+
 
 ## Actualiza la regeneración pasiva de Furia en FuriaComponent si existe.
 ## Si FuriaComponent no tiene el método (test aislado), falla silencioso.
@@ -267,6 +283,13 @@ func _update_furia_regen(regen_per_sec: float) -> void:
 		return
 	if furia_node.has_method("set_passive_regen"):
 		furia_node.set_passive_regen(regen_per_sec)
+
+
+## LUZ 2pc — regen pasivo HP cada segundo. Player.gd lee este valor + tickea.
+func _update_luz_passive_regen(regen_per_sec: float) -> void:
+	var player: Node = get_parent()
+	if player != null and player.has_method("set_luz_passive_regen"):
+		player.set_luz_passive_regen(regen_per_sec)
 
 
 ## Busca un componente hermano (mismo padre) por global class_name del script.

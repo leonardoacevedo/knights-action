@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3 uid="uid://mat_cristal_escarcha"]
+
+[ext_resource type="Script" path="res://scripts/data/material_data.gd" id="1_matdata"]
+
+[resource]
+script = ExtResource("1_matdata")
+id = &"cristal_escarcha"
+display_name = "Cristal de Escarcha Puro"
+description = "Hielo que no se derrite ni con el calor de la sangre. Núcleo del Acueducto del Lamento."
+rarity = 1
+max_stack = 99

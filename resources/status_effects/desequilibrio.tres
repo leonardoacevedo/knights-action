@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://status_desequilibrio"]
+
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+id = &"desequilibrio"
+duration = 1.5
+magnitude = 1.0
+tick_interval = 0.0
+stack_mode = 0
+magnitude_policy = 0
+display_name = "Desequilibrio"
+color = Color(0.85, 0.95, 0.85, 1)

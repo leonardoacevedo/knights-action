@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_tank"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_tank_taunt"
+enemy_class = 1
+telegraph_sec = 0.5
+cd_min = 11.0
+cd_max = 13.0
+attack_duration = 0.3
+damage_mult = 1.0
+telegraph_type = &"taunt_aura"
+params = {
+"taunt_radius": 45.0,
+"taunt_duration": 3.0,
+"taunt_redirect_pct": 1.0,
+}
+display_name = "Taunt MMO Real"
+description = "Tank R2: redirige 100% del daño que el player hace a aliados (radio 45px) hacia el tank por 3s. Fuerza facing+pull del player al tank. Decisión Leo 27/05."

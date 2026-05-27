@@ -50,6 +50,9 @@ class_name World
 @export var scene_boss_heraldo: PackedScene = preload("res://scenes/entities/boss_heraldo.tscn")
 
 # ─── Rutas default para auto_load_default_stages ─────────────────────────────
+# **Migrado 27/05** a `StageManager.get_stages_for_zone(zone_id)`. La const se
+# conserva por compatibilidad para code que lo referencie directo; el path canónico
+# para nuevas zonas es `StageManager.ZONE_STAGE_PATHS`.
 
 const DEFAULT_STAGE_PATHS: Array[String] = [
 	"res://resources/stages/zona1_etapa_1.tres",
@@ -59,6 +62,29 @@ const DEFAULT_STAGE_PATHS: Array[String] = [
 	"res://resources/stages/zona1_etapa_5.tres",
 	"res://resources/stages/zona1_etapa_boss.tres",
 ]
+
+## Skill variant override por zona + enemy_class. Pool §4 — canon decisión Leo 27/05.
+## Zona 1 sin override (usa R2_SKILL_RESOURCES canónico en enemy.gd).
+## Aplica post-spawn en `_spawn_stage`: si current_zone tiene entry para enemy_class,
+## carga el .tres y overrides `enemy._r2_skill_data`. Solo R2/R3 enemies (no R4 bosses).
+## Keys: GameConfig.EnemyClass int (MELEE=0, TANK=1, ARCHER=2, MAGE=3).
+const ZONA_SKILL_VARIANTS: Dictionary = {
+	2: {  # Fragua Cenicienta (FUEGO)
+		0: "res://resources/enemy_skills/r2_melee_giratorio.tres",
+		2: "res://resources/enemy_skills/r2_archer_disparo_reactivo.tres",
+		3: "res://resources/enemy_skills/r2_mage_erupcion_terrestre.tres",
+	},
+	3: {  # Acueducto Lamento (AGUA)
+		0: "res://resources/enemy_skills/r2_melee_tajo_doble.tres",
+		1: "res://resources/enemy_skills/r2_tank_gancho_ascendente.tres",
+		3: "res://resources/enemy_skills/r2_mage_nova_hielo.tres",
+	},
+	4: {  # Cumbres Tempestad (VIENTO/LUZ)
+		0: "res://resources/enemy_skills/r2_melee_salto_asalto.tres",
+		2: "res://resources/enemy_skills/r2_archer_disparo_reactivo.tres",
+		3: "res://resources/enemy_skills/r2_mage_rafaga_arcana.tres",
+	},
+}
 
 # ─── Referencias internas ────────────────────────────────────────────────────
 
@@ -167,10 +193,14 @@ func _spawn_stage(data: StageData) -> void:
 		var scene: PackedScene = _scene_for_class(entry.enemy_class)
 		# Boss override por clase: cualquier entry R4 usa el boss específico de esa clase.
 		# Aplica tanto al modo tradicional (stage is_boss) como al modo prueba (TestArenaConfig).
+		# Prioridad: `data.boss_scene_override` (per-stage) > routing por clase.
 		if entry.rarity == GameConfig.EnemyRarity.R4:
-			var boss_override: PackedScene = _boss_scene_for_class(entry.enemy_class)
-			if boss_override != null:
-				scene = boss_override
+			if data.boss_scene_override != null:
+				scene = data.boss_scene_override
+			else:
+				var boss_override: PackedScene = _boss_scene_for_class(entry.enemy_class)
+				if boss_override != null:
+					scene = boss_override
 		if scene == null:
 			push_warning("World: scene null para clase %d." % entry.enemy_class)
 			continue
@@ -179,6 +209,10 @@ func _spawn_stage(data: StageData) -> void:
 			var enemy: Node = _instantiate_enemy(scene, entry.enemy_class, entry.rarity, enemy_elem, spawn_index, player)
 			if enemy == null:
 				continue
+			# Pool §4 variants: override _r2_skill_data según zona (skip R4 bosses).
+			# Bosses tienen patrones propios, no usan _r2_skill_data.
+			if entry.rarity != GameConfig.EnemyRarity.R4:
+				_apply_zone_skill_variant(enemy, entry.enemy_class)
 			# Registrar en StageManager para que cuente al morir.
 			StageManager.register_enemy(enemy)
 			# Registrar en DropSystem para que dropee materiales al morir.
@@ -260,7 +294,38 @@ func _boss_scene_for_class(enemy_class: int) -> PackedScene:
 	return null
 
 
+## Override _r2_skill_data según zona activa. Pool §4 variants canon Leo 27/05.
+## Llamado post-spawn solo para R2/R3 (R4 bosses tienen patrones propios).
+func _apply_zone_skill_variant(enemy: Node, enemy_class: int) -> void:
+	if enemy == null or not enemy.has_method("_r2_telegraph_sec"):
+		return  # enemy.gd no o boss especializado sin variant system
+	var zone_id: int = StageManager.current_zone if StageManager != null else 1
+	var zone_map: Dictionary = ZONA_SKILL_VARIANTS.get(zone_id, {})
+	if zone_map.is_empty():
+		return  # zona 1 o sin override → canon (R2_SKILL_RESOURCES en enemy.gd)
+	var skill_path: String = zone_map.get(enemy_class, "")
+	if skill_path.is_empty():
+		return  # esta clase no tiene override en esta zona → canon
+	var skill_data: EnemySkillData = load(skill_path) as EnemySkillData
+	if skill_data == null:
+		push_warning("World: no se pudo cargar skill variant '%s' para zona %d" % [skill_path, zone_id])
+		return
+	enemy._r2_skill_data = skill_data
+	# Re-init cooldown con cd_min del nuevo skill (sobreescribe el canon seteado en _ready).
+	if enemy.has_method("_r2_cd_min"):
+		enemy._skill_r2_cooldown = enemy._r2_cd_min()
+
+
 func _load_default_stages() -> void:
+	# Selección por zona: StageManager.current_zone (default 1) seteado por MainMenu.
+	# Si la zona no existe en ZONE_STAGE_PATHS, fallback a la lista local DEFAULT_STAGE_PATHS.
+	var zone_id: int = StageManager.current_zone if StageManager != null else 1
+	var loaded: Array[StageData] = StageManager.get_stages_for_zone(zone_id) if StageManager != null else []
+	if not loaded.is_empty():
+		for s in loaded:
+			stages.append(s)
+		return
+	# Fallback compat: zone_id 1 path local.
 	for path in DEFAULT_STAGE_PATHS:
 		var stage: StageData = load(path) as StageData
 		if stage == null:

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://scripts/data/affix_data.gd" id="2_affixdata"]
+
+[sub_resource type="Resource" id="Affix_hp"]
+script = ExtResource("2_affixdata")
+stat_id = &"hp"
+display_name = "Vida"
+value = 30
+
+[sub_resource type="Resource" id="Affix_atkspd"]
+script = ExtResource("2_affixdata")
+stat_id = &"attack_speed"
+display_name = "Velocidad de Ataque"
+value = 3
+
+[resource]
+script = ExtResource("1_itemdata")
+id = &"vara_brasas"
+display_name = "Vara de Brasas"
+description = "Núcleo ígneo atado a un palo de roble. Las llamas obedecen — o muerden la mano que falla."
+slot = 0
+rarity = 2
+element = 1
+stat_main = 30
+refinement_level = 0
+affixes = [SubResource("Affix_hp"), SubResource("Affix_atkspd")]
+visual_type = 3

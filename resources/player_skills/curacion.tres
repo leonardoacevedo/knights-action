@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="PlayerSkillData" format=3 uid="uid://player_skill_curacion"]
+
+[ext_resource type="Script" path="res://scripts/data/player_skill_data.gd" id="1_pskill"]
+
+[resource]
+script = ExtResource("1_pskill")
+id = &"curacion"
+display_name = "Curación"
+description = "Recupera 30% de HP máximo. Costo alto — sirve para emergencias."
+cost_furia = 60
+cooldown = 15.0
+effect_type = 0
+params = {
+"heal_pct": 0.30,
+}
+color = Color(0.5, 1.0, 0.6, 1)

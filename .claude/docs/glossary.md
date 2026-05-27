@@ -88,7 +88,12 @@ GDD §5.4.
 
 Daño con **ventaja**: ×1.5. Daño con **desventaja**: ×0.66.
 
-Post-launch: Viento, Rayo, Sombra.
+**Canon definitivo 27/05** — 6 elementos totales: Fuego, Agua, Tierra, Viento, Luz, Sombra. Dos ejes:
+
+- **Eje natural** (control + daño): triángulo FUEGO > TIERRA > AGUA > FUEGO + VIENTO independiente. Status: FUEGO=Quemadura (DOT 3s), AGUA=Congelación (-30% vel 2s), TIERRA=Fractura (próximo golpe +20%, single-use), VIENTO=Desequilibrio (interrumpe ataque + CD penalty).
+- **Eje cósmico** (santidad / maldad): triángulo VIENTO > LUZ > SOMBRA > VIENTO. Status: LUZ=Bendición (vampire heal 5% HP máx al atacante), SOMBRA=Miasma (DOT bypass armor + -50% Furia gen).
+
+Cross-triángulo (natural vs cósmico) neutral ×1.0. Mismo elemento ×1.0. NEUTRO involucrado ×1.0.
 
 ---
 

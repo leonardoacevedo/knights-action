@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_melee_giratorio"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_melee_giratorio"
+enemy_class = 0
+telegraph_sec = 0.5
+cd_min = 9.0
+cd_max = 12.0
+attack_duration = 1.5
+damage_mult = 0.7
+telegraph_type = &"spin"
+params = {
+"tick_interval": 0.3,
+"move_speed": 50.0,
+"hitbox_radius": 75.0,
+}
+display_name = "Corte Giratorio"
+description = "Melee R2 alt (Set B): hitbox rotando 1.5s con avance lento + multi-hit cada 0.3s. Damage por tick bajo, sumado alto si player no rompe distancia."

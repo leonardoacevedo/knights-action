@@ -86,6 +86,34 @@ Pendiente en `docs/features/phase_2_retrospective.md`.
 ### Criterio para cerrar fase
 Un tester nuevo termina la zona, vence al boss y entiende el sistema RPG sin tutorial extenso.
 
+### Zonas 2/3/4 — lógica implementada anticipadamente (27/05)
+
+**Decisión Leo (27/05):** implementar lógica de zonas 2-4 ahora aunque GDD §11 las marca
+post-launch backlog. Visual estético queda pendiente. Razón: bestiario + StageData +
+materials + bosses son contenido de relleno aprovechable durante Fase 4 (Coliseo) sin
+saltarse cierre formal de Fase 3 (Zona 1 polished).
+
+**Implementado:**
+- **Zona 2 (Fragua Cenicienta — FUEGO):** 6 stages + boss [Ignis](../../resources/stages/zona2_etapa_boss.tres). 3 materials nuevos (`fragmento_ascuas`, `mineral_hierro_rojo`, `nucleo_igneo`). Drop tables per-stage + boss. 2 recetas crafteo (`craft_peto_brasas`, `craft_aegis_igneo`). Boss Ignis: 5 patrones (Hammer Overhead, Salto Sísmico con PersistentHazard lava, Lluvia Meteoros, Sed de Sangre F2, Corte Giratorio F2).
+- **Zona 3 (Acueducto del Lamento — AGUA):** 7 stages + boss [Lyss](../../resources/stages/zona3_etapa_boss.tres). 3 materials (`gota_lamento`, `cristal_escarcha`, `nucleo_abisal`). Drop tables. Boss Lyss: 5 patrones (Látigo Helado, Nova de Hielo + FREEZE, Triple Tiro, Vórtice Gravedad F2, Canto Helado aura F2).
+- **Zona 4 (Cumbres de la Tempestad — VIENTO/LUZ):** 5 stages + mini-boss (Capitán de los Vientos) + boss placeholder. 3 materials (`pluma_tormenta`, `fragmento_cielo_roto`, `nucleo_fulgurante`). Boss Vael "Señor de la Luz Cegadora" (placeholder, usa boss_heraldo via routing por clase).
+- **Routing por zona:** `StageManager.current_zone` (1..4) + `get_stages_for_zone(id)`. `set_zone(N)` API para MainMenu (UI pendiente).
+- **Boss override per-stage:** `StageData.boss_scene_override` permite asignar bosses propios sin tocar routing por clase.
+
+**Pendiente:**
+- Visual estético (sprites, parallax, audio) — TODAS las zonas.
+- Skills nuevas del bestiario zona 2-3 (Muro Llamas, Trampa Cazador, Tajo Doble, etc.) — viables con infra actual, no implementadas todavía.
+- Mini-boss stage type dedicado (zona 4 etapa 3 usa stage normal con 1 R3 archer).
+- Items dedicados zona 2-4 (los crafteos zona 2 reusan items zona 1; zona 3 craft usa cota_cuero placeholder).
+- UI selección de zona en MainMenu (API `StageManager.set_zone` lista para wireado).
+
+**Decisiones pendientes (zona 4 desbloqueada elemento, otros pendientes):**
+- ✅ **6 elementos canon definitivos 27/05 (decisión Leo)**: FUEGO, AGUA, TIERRA, VIENTO, LUZ, SOMBRA. Enum `ItemData.Element` (0=NEUTRO, 1..6). Dos triángulos: primario FUEGO>TIERRA>AGUA>FUEGO + secundario VIENTO>LUZ>SOMBRA>VIENTO. Status synergy: VIENTO=SLOW (suave), LUZ=STUN (destello cegador), SOMBRA=POISON. Ver habilidades_generales.md §7.5.
+- Stage type mini-boss — agregar campo `is_mini_boss: bool` a StageData para UI banner propio. Pendiente.
+- Reflexión proyectiles (boss Lyss "Muralla Estática refleja" + zonas futuras) — REQ-INFRA grande, no implementado.
+- Boss Vael completo (5 patrones reales) — actualmente placeholder R4 Mage element=LUZ. Crear `boss_vael.gd/.tscn` con Ráfaga Arcana, Lanza de Luz Penetrante (REQ-INFRA laser tracking 2s), Patada Frontal, etc.
+- Items dedicados elementos VIENTO/LUZ/SOMBRA — actualmente todos los items canónicos son FUEGO/AGUA/TIERRA/NEUTRO. Agregar 2-3 weapons + armors por elemento nuevo cuando se balance economía zona 4.
+
 ---
 
 ## Fase 4 — Coliseo (2-3 meses)
@@ -141,7 +169,7 @@ APK / IPA en TestFlight / Internal Testing con ~50 jugadores reales por 1 semana
 
 - Zonas 2 (Fuego) y 3 (Agua) con sus bosses.
 - Rareza R4 Legendaria.
-- Elementos Viento, Rayo, Sombra.
+- ~~Elementos Viento, Rayo, Sombra~~ → **Canon definitivo 27/05**: 6 elementos = FUEGO, AGUA, TIERRA, VIENTO, LUZ, SOMBRA. Implementado en código + tests (RAYO descartado, LUZ ocupa slot 5).
 - Sistema de Reliquias (roguelite-lite).
 - Logros y cosméticos.
 - Eventos de temporada en Coliseo.

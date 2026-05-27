@@ -38,10 +38,10 @@ Toda skill — enemy o player — cumple los siguientes principios:
 
 | Clase | R1 (ataque básico = 1 skill) | R2 (hereda R1 + suma 1) | R3 (hereda R1+R2 + suma 1) | R4 (boss) |
 |---|---|---|---|---|
-| Melee | ✅ Corte espada arco frontal | ✅ + Embestida-dash + knockback | ✅ + **Sed de Sangre** (buff +20% vel/atk 5s, CD 12s). Skill genérica R3 (hitbox ampliada) eliminada — era redundante con ataque básico. | ✅ Guardián (5 patrones) |
-| Tank | ✅ Hammer overhead | ✅ + **Taunt MMO clásico** — redirige **100%** del daño que el player hace a aliados (radio 45px) hacia el tank por 3s. **Además fuerza al player:** facing hacia el tank + pull horizontal a SPEED completa hasta pegarse (35px). Player conserva salto/ataque/bloqueo/dash, solo el movimiento lateral está override. Marker "!" pulsante + flash rojo de pantalla + aura naranja + tinte sprite + líneas a aliados + damage floater grande sobre tank. CD 12s. **Decisión Leo:** aunque se sienta "roto", el taunt DEBE ser así para cumplir su rol. | ✅ + skill genérica potenciada (hammer ×1.5 daño con telegrafía 1.5s) | — |
-| Archer | ✅ Flecha Perforante (single arrow, pierce ×3) | ✅ + Ráfaga 3 flechas spread ±15° (CD 8s) | ✅ + proyectil potenciado (×1.5 daño, telegrafía 1.5s) | — |
-| Mage | ✅ Orbe Flamígero (fireball + AoE radial 35px / 60% daño on impact) | ✅ + Canalizar 1.2s → fireball ×1.8 size + ×1.5 daño (CD 10s) | ✅ + proyectil potenciado (fireball ×1.5 daño, telegrafía 1.5s) | — |
+| Melee | ✅ Corte espada arco frontal | ✅ + Embestida-dash + knockback | ✅ + **Sed de Sangre** (buff +20% vel/atk 5s, CD 12s). Skill genérica R3 (hitbox ampliada) eliminada — era redundante con ataque básico. | ✅ Guardián (5 patrones) + **Ignis** zona 2 (Hammer Overhead, Salto Sísmico + lava PersistentHazard, Lluvia Meteoros, Sed de Sangre F2, Corte Giratorio F2) |
+| Tank | ✅ Hammer overhead | ✅ + **Taunt MMO clásico** — redirige **100%** del daño que el player hace a aliados (radio 45px) hacia el tank por 3s. **Además fuerza al player:** facing hacia el tank + pull horizontal a SPEED completa hasta pegarse (35px). Player conserva salto/ataque/bloqueo/dash, solo el movimiento lateral está override. Marker "!" pulsante + flash rojo de pantalla + aura naranja + tinte sprite + líneas a aliados + damage floater grande sobre tank. CD 12s. **Decisión Leo:** aunque se sienta "roto", el taunt DEBE ser así para cumplir su rol. | ✅ + **Muralla Estática** (27/05) — aplica status `muralla_estatica` 1.2s. Invuln direccional frontal: ataques desde el frente del tank (mismo signo que `current_facing`) son bloqueados con damage floater "BLOCK!". Ataques por la espalda entran normales. Sin hitbox propio — skill defensivo puro. Aura azul GPUParticles + DEF up. | — |
+| Archer | ✅ Flecha Perforante (single arrow, pierce ×3) | ✅ + Ráfaga 3 flechas spread ±15° (CD 8s) | ✅ + **Lluvia de Flechas** (27/05) — 3 `AoeTelegraph` amarillos staggered (spread 70px) bajo player. Tras 0.55s, damage radial 42px en cada posición. Reemplaza "proyectil potenciado" genérico. | — |
+| Mage | ✅ Orbe Flamígero (fireball + AoE radial 35px / 60% daño on impact) | ✅ + Canalizar 1.2s → fireball ×1.8 size + ×1.5 daño (CD 10s) | ✅ + **Lluvia de Meteoros** (27/05) — 3 `AoeTelegraph` rojos staggered (spread 80px). Tras 0.55s, AoE damage 42px + aplica BURN 3s/4dmg/tick. | ✅ Heraldo + **Lyss** zona 3 (Látigo Helado, Nova de Hielo + FREEZE, Triple Tiro, Vórtice Gravedad F2, Canto Helado F2) |
 
 **Capstones del árbol player** (efectos pasivos/buffs temporales activos hoy):
 - `agil_golpe_tras_dash` — +10% daño 0.5s post-dash (POST_DASH_DAMAGE_PCT)
@@ -51,7 +51,7 @@ Toda skill — enemy o player — cumple los siguientes principios:
 - `mago_ventaja_aguzada` — +15% al multiplicador de ventaja elemental
 - Stats cableados: BLOCK_CHARGES, IFRAMES_PCT, MOVE_SPEED_PCT, DASH_COOLDOWN_PCT, EVADE_PCT, etc.
 
-**Skills activas del player (Furia → efecto):** ⛔ NO implementado. Sistema pendiente — ver §6.
+**Skills activas del player (Furia → efecto):** ✅ Sistema IMPL (27/05). Lógica completa + 6 skills .tres iniciales + autoload `PlayerSkillSystem` + input map (skill_1/2/3 → teclas 1/2/3). Pendiente: UI de equipado + tree de unlock. Ver §5.
 
 ---
 
@@ -68,12 +68,17 @@ Toda skill — enemy o player — cumple los siguientes principios:
 | Damage soak / redirect | `HurtboxComponent.taunt_soaker` |
 | AoE radial (boss multi-target) | `boss_guardian.gd._aoe_*` |
 | Bloqueo de cargas | `EnemyBlockHandler` |
+| Cargas temporales del escudo | `ShieldComponent.add_temporary_charges(N, dur)` |
 | Dash con i-frames | `DashComponent` |
 | Knockback al player | `player.apply_external_velocity(push)` |
-| Buffs temporales con timer | `_post_dash_damage_timer`, `_espiritu_marcial_timer` |
+| Status effects genérico (slow/burn/stun/poison/freeze/vulnerable/muralla_estatica) | `StatusEffectComponent` + `resources/status_effects/*.tres` |
+| Invuln direccional | `HurtboxComponent._is_blocked_by_directional_invuln` (status `muralla_estatica`) |
+| Daño extra al "vulnerable" defensor | `HurtboxComponent.receive_hit` multiplica si target tiene status |
+| Element → Status synergy (FUEGO=BURN, AGUA=FREEZE, TIERRA=VULNERABLE, 30% chance) | `HitboxComponent._try_apply_element_status` + `Projectile._try_apply_element_status` |
 | Element propagado | `hitbox.element`, `hurtbox.element` |
 | Set Bonuses afinidad | `SetBonusSystem` |
-| Furia (player) ya acumula + decae | `FuriaComponent` |
+| Furia (player) ya acumula + decae + se gasta | `FuriaComponent` + `PlayerSkillSystem.try_use(slot)` |
+| Persistencia skill loadout | `SaveSystem` + `PlayerSkillSystem._serialize_state` |
 
 ### 🟡 Infra parcial — usable con extensión chica
 | Capability | Qué falta |
@@ -89,8 +94,8 @@ Toda skill — enemy o player — cumple los siguientes principios:
 ### 🔴 Infra grande — sistema nuevo
 | Capability | Qué requiere |
 |---|---|
-| **Status Effect System genérico** | Resource `StatusEffectData` + `StatusEffectComponent` por entity. Maneja stacking, refresh, expiration, signals. Hoy todo es ad-hoc (flags + timers por skill). Necesita ~200 líneas + refactor de skills existentes. |
-| **EnemySkill como Resource .tres** | Como propone Leo en su doc. Migra la `R2_SKILL_TABLE` hardcoded a `resources/enemy_skills/*.tres`. Lógica de ejecución sigue en código (executor por `telegraph_type`). Permite asignar skills al spawn entry. Beneficio: balance sin recompile + variants fáciles. Costo: ~150 líneas + migración de skills R2 actuales. |
+| **Status Effect System genérico** | ✅ IMPL 27/05. `StatusEffectData` (Resource) + `StatusEffectComponent` (Node hijo de Player/Enemy). Stack modes REFRESH/EXTEND/INDEPENDENT/IGNORE + magnitude policies KEEP_MAX/MIN/LATEST/SUM + tick interval para DOTs. **10 .tres**: slow, espiritu_marcial, post_dash_damage, post_dash_invis, burn, stun, poison, freeze, vulnerable, muralla_estatica. Player.gd y Enemy.gd consumen vía signals + queries `has(id)/get_magnitude(id)`. Migrados: Espíritu Marcial, slow externo (Mareo Frío), post-dash damage, post-dash invis. Tests puros: `tests/systems/status_effect_component_test.gd`. |
+| **EnemySkill como Resource .tres** | ✅ IMPL parcial 27/05. `EnemySkillData` (Resource) + 4 .tres en `resources/enemy_skills/r2_{melee,tank,archer,mage}.tres`. Migrados: telegraph_sec, cd_min, cd_max, attack_duration, damage_mult, params dict (dash_distance, taunt_radius, projectile_count, etc.). `R2_SKILL_TABLE` const sigue como fallback defensivo. Pendiente: migrar consts hardcoded R2_MELEE_DASH_DISTANCE etc. a `_r2_param("dash_distance", default)`. |
 | **Projectile homing / seek** | Modificar `Projectile.gd` con flag `homing_target: Node2D` + `homing_strength: float`. Update direction cada frame hacia target. Trivial pero requiere tunear feel. |
 | **Reflexión de proyectiles** | `Projectile` debe poder cambiar `team` al impactar superficie reflectante (Area2D del Tank R3 set A "Muralla Estática"). Necesita signal + check de owner. Edge case: ¿quién hace daño? El reflejado o el reflejante? |
 
@@ -112,7 +117,7 @@ Estado: **PROP** = propuesta sin implementar · **PARC** = parcialmente viable �
 | Clase | Rareza | Nombre | Estado | Notas técnicas |
 |---|---|---|---|---|
 | Guerrero | R1 | Corte Cruzado | OK | Equivale al ataque básico actual. |
-| Guerrero | R2 | Salto de Asalto (gap closer + AoE caída) | OK | Telegrafía sombra circular en suelo (requiere AoeTelegraph scene). Knockback ya tenemos. |
+| Guerrero | R2 | Salto de Asalto (gap closer + AoE caída) | IMPL (27/05) | `r2_melee_salto_asalto.tres` + `_enter_r2_salto_asalto / _tick_r2_salto_asalto`. AoeTelegraph + jump arc + landing damage radial 75px + knockback. |
 | Guerrero | R3 | Rugido de Guerra + Stagger | REQ-INFRA | Stagger = State.STUNNED en player (no implementado). Si no se puede hacer Stagger, reducir a Slow 50% por 1s. |
 | Tank | R1 | Provocación / forced-look | NO | Ver §3 ⛔. Reinterpretar como aura visual + flag de prioridad UI. |
 | Tank | R2 | Escudo Cargado (embestida + rompe 1 carga escudo player) | PARC | Embestida ya tenemos (similar al melee R2). "Romper carga del escudo player" = nuevo hook en `player.shield.consume_charge_force(1)`. ~5 líneas. |
@@ -121,15 +126,15 @@ Estado: **PROP** = propuesta sin implementar · **PARC** = parcialmente viable �
 | Archer | R2 | Lluvia de Flechas (3 AoE telegrafiados que caen tras 0.5s) | REQ-INFRA | Necesita AoeTelegraph + sistema de "drop after delay" (Timer + spawn). ~30 líneas. |
 | Archer | R3 | Flecha Aturdidora (stun 1s) | NO | Ver §3 ⛔. Reducir a Slow 70% por 0.7s. |
 | Mage | R1 | Orbe Flamígero (AoE explosivo post-impacto) | IMPL | `aoe_on_impact` flag en `Projectile`. AoeTelegraph 0.4s + daño radial 35px/60%. Solo Mage R1 base. |
-| Mage | R2 | Nova de Hielo (zona fija bajo player que explota tras windup) | PARC | AoeTelegraph + spawn de AoE explosivo. Similar a Lluvia. |
+| Mage | R2 | Nova de Hielo (zona fija bajo player que explota tras windup) | IMPL (27/05) | `r2_mage_nova_hielo.tres` + `_enter_r2_nova_hielo / _tick_r2_nova_hielo`. AoeTelegraph 70px + AoE damage + aplica FREEZE. |
 | Mage | R3 | Lluvia de Meteoros (3 homing) | REQ-INFRA | Projectile homing. Si no, reducir a 3 proyectiles secuenciales straight con timing. |
 
 ### 4.2 Set B (Alternativo)
 
 | Clase | Rareza | Nombre | Estado | Notas |
 |---|---|---|---|---|
-| Guerrero | R1 | Tajo Doble | OK | 2 hitboxes secuenciales 0.1s separados. Trivial. |
-| Guerrero | R2 | Corte Giratorio (AoE 1.5s rotación) | OK | Hitbox activa con rotación continua. ~20 líneas. |
+| Guerrero | R1 | Tajo Doble | IMPL (27/05) | `r2_melee_tajo_doble.tres` + `_enter_r2_tajo_doble / _tick_r2_tajo_doble`. 2 hits secuenciales 0.1s gap. Cada hit 0.9× dmg. |
+| Guerrero | R2 | Corte Giratorio (AoE 1.5s rotación) | IMPL (27/05) | `r2_melee_giratorio.tres` + `_enter_r2_giratorio / _tick_r2_giratorio`. Hitbox activo todo el spin + avance lento + multi-hit tick. |
 | Guerrero | R3 | Sed de Sangre (buff propio +vel/atk 5s) | IMPL | `_skill_r3_buff_cooldown` (12s) + `_r3_buff_timer`. Prioridad máxima en CHASE. VFX aura roja + tinte sprite. |
 | Tank | R1 | Golpe Terremoto (AoE + Slow 50% / 2s) | REQ-INFRA | Slow requiere `_external_speed_mult` en player. |
 | Tank | R2 | Gancho (proyectil que arrastra) | PARC | Tween de player hacia tank si proyectil acierta. ~30 líneas. Player nota "no responde" durante el pull — comunicar con flag visual. |
@@ -137,54 +142,80 @@ Estado: **PROP** = propuesta sin implementar · **PARC** = parcialmente viable �
 | Archer | R1 | Disparo en Abanico (3 flechas cono frontal) | OK | Idéntico al R2 actual pero como ataque básico R1. |
 | Archer | R2 | Trampa de Cazador (estática que inmoviliza) | REQ-INFRA + NO inmovilización. | PersistentHazard scene + Slow 70% al pisar. |
 | Archer | R3 | Flecha Explosiva (adherente + explota 1.5s) | OK | Projectile con onHit → Timer → AoE radial. ~25 líneas. |
-| Mage | R1 | Látigo Relámpago (línea instantánea tras windup largo) | OK | Hitbox rectangular activa 0.1s tras telegraph. ~15 líneas. |
+| Mage | R1 | Látigo Lumínico (línea instantánea tras windup largo) | OK | Hitbox rectangular activa 0.1s tras telegraph. ~15 líneas. Element LUZ. |
 | Mage | R2 | Muro de Llamas (línea fija 4s) | REQ-INFRA | PersistentHazard. ~30 líneas. |
-| Mage | R3 | Rayo Penetrante (láser 2s que persigue lento) | REQ-INFRA | Line2D que se actualiza cada frame con interpolación lenta hacia player. ~40 líneas. |
+| Mage | R3 | Lanza de Luz Penetrante (láser 2s que persigue lento) | REQ-INFRA | Line2D que se actualiza cada frame con interpolación lenta hacia player. ~40 líneas. Element LUZ. |
+
+### 4.2.5 Asignación de variants por zona (canon 27/05, decisión Leo)
+
+Las variants del pool §4 se asignan **por zona** (no por rareza ni random). Cada zona tiene set canónico para distinguir bestiario.
+
+| Zona | Melee R2 | Tank R2 | Archer R2 | Mage R2 | Skill R3 (genérica) |
+|---|---|---|---|---|---|
+| **1 Valle de los Ecos** | Embestida-dash (canon) | Taunt MMO (canon) | Ráfaga 3 flechas (canon) | Canalizar fireball (canon) | Lluvia (Archer) / Meteoros (Mage) / Muralla (Tank) / Sed Sangre (Melee) |
+| **2 Fragua Cenicienta** (FUEGO) | Corte Giratorio | Embestida + buff | Disparo Reactivo | Erupción Terrestre | Sed Sangre / Muralla / Lluvia Meteoros (FUEGO) |
+| **3 Acueducto Lamento** (AGUA) | Tajo Doble | Gancho Ascendente | Lluvia Flechas | Nova de Hielo | Lluvia Meteoros (AGUA → FREEZE en lugar de BURN) |
+| **4 Cumbres Tempestad** (VIENTO/LUZ) | Salto de Asalto | Patada Frontal | Disparo Reactivo | Ráfaga Arcana | Patrones especiales mini-boss + Vael |
+
+**Wireado pendiente:** mapeo concreto `enemy_class + zona → skill .tres`. Opciones:
+1. Diccionario `ZONA_SKILL_VARIANTS` en `world.gd` / `StageManager` (key: zona, value: dict class → skill_path).
+2. Override per-spawn_entry (más data por stage — campo nuevo en `EnemySpawnEntry`).
+3. Override en `world._spawn_stage`: detectar zona via `StageManager.current_zone` y swap `_r2_skill_data` post-spawn.
+
+Recomendación: **opción 3** (override en spawn, sin modificar EnemySpawnEntry).
 
 ### 4.3 Set C (Táctico)
 
 | Clase | Rareza | Nombre | Estado | Notas |
 |---|---|---|---|---|
-| Guerrero | R1 | Patada Frontal (rango corto + knockback) | OK | Reusar Hitbox melee con damage menor + knockback. Trivial. |
-| Guerrero | R2 | Gancho Ascendente (rompe 2 cargas escudo) | PARC | Similar a Tank R2 set A "Escudo Cargado". |
-| Guerrero | R3 | Arma Imbuida (buff propio, ataques ignoran escudo) | PARC | Flag en hitbox `ignore_shield: bool`. ShieldComponent verifica antes de absorber. ~10 líneas. |
+| Guerrero | R1 | Patada Frontal (rango corto + knockback) | IMPL (27/05) | `r2_melee_patada.tres` + `_enter_r2_patada / _tick_r2_patada`. Hitbox corto + knockback fuerte (120/-120). |
+| Guerrero | R2 | Gancho Ascendente (rompe 2 cargas escudo) | IMPL (27/05) | `r2_tank_gancho_ascendente.tres` + `_apply_gancho_charges_break` → `ShieldComponent.consume_charge_force(2)`. |
+| Guerrero | R3 | Arma Imbuida (buff propio, ataques ignoran escudo) | IMPL (27/05) | `r2_melee_arma_imbuida.tres` + `_enter_r2_arma_imbuida / _tick_arma_imbuida_buff`. 5s buff. `HitboxComponent.ignore_shield = true`. HurtboxComponent saltea shield.try_absorb si source.ignore_shield. |
 | Tank | R1 | Golpe de Escudo (interrumpe ataque/dash player) | REQ-INFRA | "Interrumpir dash" = cancelar dash en curso → DashComponent.cancel(). "Interrumpir ataque" = cancelar swing → player.cancel_attack(). Ambos requieren hooks nuevos. ~20 líneas. |
 | Tank | R2 | Salto Sísmico (AoE + zona persistente 2s) | REQ-INFRA | PersistentHazard + AoeTelegraph. |
 | Tank | R3 | Vórtice de Gravedad (pull masivo) | NO / parcial | Ver §3 ⛔. Si se hace, área limitada + duración 1s máx. |
-| Archer | R1 | Disparo Reactivo (rápido, bajo daño) | OK | Proyectil con velocity ×2 + damage ÷2. Trivial. |
+| Archer | R1 | Disparo Reactivo (rápido, bajo daño) | IMPL (27/05) | `r2_archer_disparo_reactivo.tres` + `_spawn_r2_disparo_reactivo_projectile`. Velocity ×2 + dmg ÷2 + scale 0.8. |
 | Archer | R2 | Flecha Tóxica (nube DOT 3s) | REQ-INFRA | DOT + PersistentHazard. |
 | Archer | R3 | Tiro Mortal / Snipe (laser sigue, dispara fijo) | REQ-INFRA | Similar a Mage R3 set B. |
-| Mage | R1 | Ráfaga Arcana (3 proyectiles rápidos sucesivos) | OK | 3 calls a `_spawn_projectile()` con delay 0.1s. ~10 líneas. |
-| Mage | R2 | Erupción Terrestre (pilar desde suelo bajo player) | OK | AoeTelegraph + spawn de hitbox vertical tras delay. |
+| Mage | R1 | Ráfaga Arcana (3 proyectiles rápidos sucesivos) | IMPL (27/05) | `r2_mage_rafaga_arcana.tres` + `_tick_r2_rafaga_arcana`. 3 proyectiles delay 0.12s. Cada uno 0.7× dmg. |
+| Mage | R2 | Erupción Terrestre (pilar desde suelo bajo player) | IMPL (27/05) | `r2_mage_erupcion_terrestre.tres` + `_tick_r2_erupcion_terrestre`. AoeTelegraph 50px + AoE damage + FRACTURA. No tracking — single drop fijo. |
 | Mage | R3 | Tormenta Persecutoria (nube + rayos periódicos 4s) | REQ-INFRA | PersistentHazard que sigue al player + spawn de rayos cada N seg. |
 
 ---
 
-## 5. Skills del Jugador — Sistema Pendiente
+## 5. Skills del Jugador — Sistema Activo
 
-**Estado actual:** Furia ya acumula (+10/golpe, decay 5/s tras 5s sin atacar, cap 100). NO se gasta en nada todavía.
+**Estado actual (27/05):** ✅ Sistema lógico IMPL. Furia (+10/golpe, decay 5/s, cap 100) ahora se gasta en skills activas. Pendiente solo UI + tree de unlock.
 
-**Sistema requerido (no implementado):**
-- Catálogo `PlayerSkillData` (Resource) con: nombre, costo Furia, CD, efecto, animación.
-- 3 slots equipables (joystick + 5 botones disponibles → 3 botones libres para skills).
-- UI de asignación skill→slot (drag-and-drop o picker).
-- Sistema de ejecución (validar Furia + CD, animar, aplicar efecto, consumir Furia, iniciar CD).
-- Cómo se obtienen skills? **Decisión pendiente Leo**: ¿drop? ¿unlock por árbol? ¿pre-fijas por clase?
+**Arquitectura:**
+- `scripts/data/player_skill_data.gd` — Resource: `id, display_name, cost_furia, cooldown, effect_type, params, icon, color`.
+- `scripts/systems/player_skill_system.gd` — Autoload con 3 slots equipados + ejecución validada (Furia + CD + slot ocupado).
+- Input map en `project.godot`: `skill_1/2/3 → teclas 1/2/3`. Player.gd llama `PlayerSkillSystem.try_use(slot)`.
+- Signals: `skill_used(slot, data) / cooldown_started(slot, cd) / slot_equipped(slot, data) / skill_failed(slot, reason)`.
 
-**Pool propuesto inicial (cuando se implemente el sistema):**
+**EffectTypes implementados:** HEAL, BUFF_DAMAGE, AOE_DAMAGE, AOE_BURN, DASH_FORWARD, SPAWN_PROJECTILE, GAIN_SHIELD, INVIS, APPLY_SLOW_AOE.
 
-| Slot | Nombre | Costo Furia | CD | Efecto |
+**Pool inicial (6 .tres creadas en `resources/player_skills/`):**
+
+| ID | Nombre | Costo Furia | CD | Efecto |
 |---|---|---|---|---|
-| 1 | Embestida | 30 | 4s | Dash extendido con damage. Atraviesa enemies (similar Melee R2 pero al revés). |
-| 2 | Onda Sísmica | 50 | 8s | AoE radial 100px que stuns enemies 0.3s. |
-| 3 | Bola de Fuego | 40 | 6s | Proyectil grande que explota al impactar (similar Mage R2). |
-| 4 | Curación | 60 | 15s | Recupera 30% HP. |
-| 5 | Furia Berserker | 80 | 20s | +30% daño 5s, consume toda la Furia. |
-| 6 | Escudo Mágico | 40 | 10s | +3 cargas de bloqueo temporales. |
-| 7 | Sombra | 70 | 25s | Invisibilidad 2s, próximo ataque ×2 daño. |
-| 8 | Flecha Eléctrica | 35 | 5s | Proyectil que rebota entre 3 enemies. |
+| `embestida` | Embestida | 30 | 4s | Impulso horizontal hacia facing + buff dmg ×1.5 al próximo swing (0.4s). DASH_FORWARD. |
+| `bola_fuego` | Bola de Fuego | 40 | 6s | Spawnea fireball con ×1.5 damage. SPAWN_PROJECTILE. |
+| `onda_sismica` | Onda Sísmica | 50 | 8s | AoE radial 100px + aplica BURN 3s/4dmg-tick. AOE_BURN. |
+| `curacion` | Curación | 60 | 15s | +30% HP máximo. HEAL. |
+| `escudo_magico` | Escudo Mágico | 40 | 10s | +2 cargas escudo (placeholder hasta `add_temporary_charges`). GAIN_SHIELD. |
+| `sombra` | Sombra | 70 | 25s | Invis 2s + ventaja elemental garantizada al próximo golpe (reutiliza `post_dash_invis`). INVIS. |
 
-**Status:** TODOS pendientes. Sistema requerido en sesión separada con scope completo.
+**Loadout default (player.gd._ready):** slot 0=Embestida, slot 1=Bola Fuego, slot 2=Onda Sísmica. Override desde UI futura.
+
+**Tests:** `tests/systems/player_skill_system_test.gd` — 13 tests (equip/unequip, can_use, try_use, cooldown decay, force_execute, heal observable, buff_damage status, signal failed reasons, unregister cleanup).
+
+**Pendiente (sesión UI futura):**
+- UI de asignación skill→slot (drag-and-drop o picker — pueden vivir en `inventory_screen.tscn`).
+- Tree de unlock — cómo se obtienen skills? Decisión Leo: drop / unlock por árbol / pre-fijas por clase.
+- Persistencia equipped IDs en SaveSystem (PlayerSkillSystem expone slots, falta wire en `save_system.gd`).
+- `ShieldComponent.add_temporary_charges(N, duration)` — hoy GAIN_SHIELD usa `restore_all` como fallback.
+- VFX por skill (icono casteando, partículas, sonidos).
 
 ---
 
@@ -213,15 +244,66 @@ Estado: **PROP** = propuesta sin implementar · **PARC** = parcialmente viable �
 
 ---
 
+## 7.5 Element → Status synergy (rediseño 27/05 — Eje natural vs Eje cósmico)
+
+> **Nota de diseño Leo:** Los elementos naturales (Fuego/Agua/Tierra/Viento) se enfocan en **control y daño elemental puro**. El Eje Cósmico (Luz/Sombra) se enfoca en **alteración de estadísticas, supervivencia y maldiciones** — temática santa vs maldad.
+
+Cada hit con elemento no-NEUTRO tiene **30%** de chance de aplicar el efecto correspondiente:
+
+### Eje natural — control + daño
+
+| Elemento | Status | Efecto | Notas |
+|---|---|---|---|
+| FUEGO (1) | **Quemadura** | DOT 3s, 3 dmg/tick (0.5s) | Tick directo a HP (similar miasma pero NO bypass armor en player) |
+| AGUA (2) | **Congelación** | -30% velocidad 2s (mult 0.7) | Reemplaza freeze pesado anterior (0.3×/0.8s) por slow más legible |
+| TIERRA (3) | **Fractura** | Próximo golpe recibido +20% dmg, **single-use**, ventana 5s | Se consume en HurtboxComponent.receive_hit |
+| VIENTO (4) | **Desequilibrio** | Interrumpe ataque actual + 1.5s CD penalty | Enemy: cancel state machine → RECOVERY + +1.5s a CDs. Player: cancela swing actual |
+
+### Eje cósmico — supervivencia + maldiciones
+
+| Elemento | Status | Efecto | Notas |
+|---|---|---|---|
+| LUZ (5) | **Bendición Divina** | Vampire heal: atacante recupera 5% HP máx | NO aplica status al defender — heal directo al source. Melee OK, projectile pendiente (no track source) |
+| SOMBRA (6) | **Miasma** | DOT 5s 2 dmg/tick + **bypass armor** + **-50% Furia gen** | Stack INDEPENDENT (snowball lategame). Daño directo a health (no flat_defense). Player: furia.add_on_hit halved si miasma activo |
+
+| NEUTRO (0) | — | Sin status | Sin elemento, sin synergy |
+
+### Triángulos elementales
+
+`GameConfig.ELEMENT_ADVANTAGE` — 6 elementos canon Leo 27/05:
+- **Primario** (natural): FUEGO > TIERRA > AGUA > FUEGO
+- **Secundario** (cósmico+viento): VIENTO > LUZ > SOMBRA > VIENTO
+- **Cross-triángulo:** ×1.0 (FUEGO vs VIENTO neutral, AGUA vs LUZ neutral, etc.)
+- Mismo elemento: ×1.0. NEUTRO involucrado: ×1.0.
+
+### Wireado
+
+- `HitboxComponent._try_apply_element_status` (melee/hammer/bow swing): branch LUZ → `_apply_bendicion_heal_to_source` (cura attacker), demás elementos → `se.apply(data)` sobre defender.
+- `Projectile._try_apply_element_status` (arrow/fireball): LUZ skip (TODO source_entity tracking), demás aplican status.
+- `HurtboxComponent.receive_hit`: consume FRACTURA al aplicar multiplicador (single-use).
+- `Enemy._on_status_applied(&"desequilibrio")`: cancela attacking state → RECOVERY + suma 1.5s a CDs.
+- `Player._on_hit_landed`: halve furia gain si `status_effects.has(&"miasma")`.
+
+### Implicación gameplay
+
+Equipo elemental ahora se "siente" más allá del ×1.5/×0.66 damage:
+- **FUEGO** → DOT sostenido suma a daño base. Sinérgico con armas rápidas.
+- **AGUA** → kiteo fácil — enemies ralentizados 2s con cada golpe.
+- **TIERRA** → combo: aplicar Fractura + golpear segunda vez con build físico/elemental fuerte = ventaja masiva.
+- **VIENTO** → control puro — enemies con casts largos se ven cancelados sistemáticamente.
+- **LUZ** → sustain — vampirismo permite agresión sostenida sin retroceder.
+- **SOMBRA** → presión — DOT que ignora armor + ahoga Furia del enemy. Snowball que el target no puede limpiar.
+
 ## 8. Pendientes futuros (post Fase 3 visual)
 
 Acordado con Leo: cuando termine la Fase 3 (arte + audio + HUD polish), abrir sesión dedicada a:
 
 - **Revisar TODAS las skills implementadas con más detalle** — feel, balance, telegrafías, interacciones entre skills, edge cases. Especialmente: taunt MMO real (¿se siente bien con override de input?), set bonus 3pc TIERRA "bloqueo infinito", balance R3 mage (proyectil potenciado + Orbe Flamígero AoE heredado), interacciones boss + mobs durante prueba con cap 1+8.
-- **Sistema de skills activas del jugador** (Furia → efecto). Ver §5 — sistema grande sin scope cerrado, decisiones pendientes.
-- **StatusEffect system genérico** (ver §3 🔴) — habilita Slow/Stun/Stagger/DOT estandarizados. Hoy todo es ad-hoc.
-- **EnemySkill como Resource .tres** (ver §3 🔴) — migra tabla hardcoded a data-drive. Justificable cuando entre zona 2.
-- **Pool de skills marcadas OK no implementadas** (Set A/B/C). Implementación incremental cuando justifique scope.
+- **UI de equipado de skills activas del jugador** — actualmente sistema lógico está implementado (ver §5), falta UI para asignar/cambiar skills a slots y tree de unlock.
+- ~~**Sistema de skills activas del jugador** (Furia → efecto)~~ ✅ IMPL 27/05 ver §5.
+- ~~**StatusEffect system genérico**~~ ✅ IMPL 27/05 ver §3 (slow/burn/stun/post_dash_*/espiritu_marcial todos migrados).
+- ~~**EnemySkill como Resource .tres**~~ ✅ IMPL parcial 27/05 ver §3 (telegraph/cd/attack_duration/damage_mult migrados, consts dash_distance/etc pendientes de migrar a params dict).
+- **Pool de skills marcadas OK no implementadas** (Set A/B/C). Implementación incremental cuando justifique scope. Ahora con StatusEffect+EnemySkillData habilitados, varias skills "REQ-INFRA" del pool (§4) pasan a "OK con extensión chica".
 - **Skills nuevas para clases adicionales** si se agregan más arquetipos en Fase 5+.
 
 ---

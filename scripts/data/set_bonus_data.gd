@@ -11,7 +11,7 @@ class_name SetBonusData
 ## para saber qué multiplicar. Cambiá estos .tres para tunear balance sin tocar .gd.
 
 ## Elemento al que aplica este bonus. Debe coincidir con ItemData.Element.
-@export_enum("NEUTRO:0", "FUEGO:1", "AGUA:2", "TIERRA:3") var element: int = 0
+@export_enum("NEUTRO:0", "FUEGO:1", "AGUA:2", "TIERRA:3", "VIENTO:4", "LUZ:5", "SOMBRA:6") var element: int = 0
 
 # ─── 2 piezas ─────────────────────────────────────────────────────────────────
 
@@ -44,3 +44,20 @@ class_name SetBonusData
 
 ## TIERRA 3pc — si true, bloquear con carga recupera +1 carga (hasta max original).
 @export var tierra_block_restores_charge: bool = false
+
+# ─── Eje cósmico + Viento (27/05 canon 6 elementos) ──────────────────────────
+
+## VIENTO 2pc — +X% move speed (default 0 = sin cambio). 0.10 = +10%.
+@export var viento_move_speed_pct_2pc: float = 0.0
+## VIENTO 3pc — multiplicador chance Desequilibrio on-hit (1.5 = +50% chance, base 30% → 45%).
+@export var viento_desequilibrio_chance_mult_3pc: float = 1.0
+
+## LUZ 2pc — heal pasivo HP por segundo. 1.0 = 1 HP/s sostained.
+@export var luz_passive_hp_regen_2pc: float = 0.0
+## LUZ 3pc — vampire heal de Bendición multiplicado (0.05 base → 0.10 con 3pc set).
+@export var luz_bendicion_heal_mult_3pc: float = 1.0
+
+## SOMBRA 2pc — multiplicador duración Miasma aplicada (1.5 = +50% más larga).
+@export var sombra_miasma_duration_mult_2pc: float = 1.0
+## SOMBRA 3pc — chance miasma on-hit aumentada (1.5 = ×1.5 = base 30% → 45%).
+@export var sombra_miasma_chance_mult_3pc: float = 1.0

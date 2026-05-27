@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PlayerSkillData" format=3 uid="uid://player_skill_escudo_magico"]
+
+[ext_resource type="Script" path="res://scripts/data/player_skill_data.gd" id="1_pskill"]
+
+[resource]
+script = ExtResource("1_pskill")
+id = &"escudo_magico"
+display_name = "Escudo Mágico"
+description = "+2 cargas temporales al escudo durante 8s. Si no hay método dedicado, restaura cargas base."
+cost_furia = 40
+cooldown = 10.0
+effect_type = 6
+params = {
+"charges": 2,
+"duration": 8.0,
+}
+color = Color(0.4, 0.8, 1.0, 1)

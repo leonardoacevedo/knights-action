@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="CraftRecipe" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/craft_recipe.gd" id="1_recipe"]
+[ext_resource type="Script" path="res://scripts/data/craft_recipe_input.gd" id="2_input"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_igneo.tres" id="3_nucleo"]
+[ext_resource type="Resource" path="res://resources/materials/mineral_hierro_rojo.tres" id="4_hierro"]
+[ext_resource type="Resource" path="res://resources/items/shields/aegis_igneo.tres" id="5_output"]
+
+[sub_resource type="Resource" id="Input_nucleo"]
+script = ExtResource("2_input")
+material = ExtResource("3_nucleo")
+count = 2
+
+[sub_resource type="Resource" id="Input_hierro"]
+script = ExtResource("2_input")
+material = ExtResource("4_hierro")
+count = 4
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_aegis_igneo"
+display_name = "Forjar Aegis Ígneo"
+description = "Escudo de placas tratado con núcleos ardientes. Set Brasas armor R3."
+inputs = [SubResource("Input_nucleo"), SubResource("Input_hierro")]
+output_item = ExtResource("5_output")
+gold_cost = 600
+required_player_level = 18

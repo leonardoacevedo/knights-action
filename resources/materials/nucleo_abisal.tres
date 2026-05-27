@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3 uid="uid://mat_nucleo_abisal"]
+
+[ext_resource type="Script" path="res://scripts/data/material_data.gd" id="1_matdata"]
+
+[resource]
+script = ExtResource("1_matdata")
+id = &"nucleo_abisal"
+display_name = "Núcleo Abisal"
+description = "Pulso de un dios ahogado. Material crítico para resistencia al Fuego — refina armaduras AGUA R3+."
+rarity = 2
+max_stack = 99

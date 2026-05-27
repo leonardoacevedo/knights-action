@@ -382,6 +382,7 @@ func _spawn_flecha_pesada() -> void:
 	# Daño x2.
 	var dmg: int = int(round(float(hitbox.damage) * FLECHA_PESADA_DAMAGE_MULT))
 	proj.launch(dir, dmg, team, element)
+	proj.set_source(self)
 	# Escalar visualmente para distinguir.
 	proj.scale = Vector2(1.4, 1.4)
 	get_tree().current_scene.add_child(proj)
@@ -404,6 +405,7 @@ func _spawn_lluvia_vertical() -> void:
 		proj.global_position = global_position + Vector2(0, 10)
 		var dir: Vector2 = base_dir.rotated(deg_to_rad(angle_offset))
 		proj.launch(dir, hitbox.damage, team, element)
+		proj.set_source(self)
 		get_tree().current_scene.add_child(proj)
 
 
@@ -477,6 +479,7 @@ func _perform_teleshot() -> void:
 			var dir: Vector2 = (aim - proj.global_position).normalized()
 			var dmg: int = int(round(float(hitbox.damage) * TELESHOT_DAMAGE_MULT))
 			proj.launch(dir, dmg, team, element)
+			proj.set_source(self)
 			get_tree().current_scene.add_child(proj)
 
 
@@ -493,6 +496,7 @@ func _spawn_mareo_proyectil() -> void:
 	var dir: Vector2 = (aim - proj.global_position).normalized()
 	var dmg: int = int(round(float(hitbox.damage) * MAREO_DAMAGE_MULT))
 	proj.launch(dir, dmg, team, element)
+	proj.set_source(self)
 	# Visual grande y azul intenso.
 	proj.scale = Vector2(1.7, 1.7)
 	proj.modulate = Color(0.4, 0.6, 1.2, 1.0)
@@ -549,6 +553,7 @@ func _fire_teleport_bonus_arrows() -> void:
 		# Pequeño spread para evitar overlap perfecto.
 		dir = dir.rotated(deg_to_rad(-10.0 + 20.0 * float(i)))
 		proj.launch(dir, hitbox.damage, team, element)
+		proj.set_source(self)
 		get_tree().current_scene.add_child(proj)
 
 

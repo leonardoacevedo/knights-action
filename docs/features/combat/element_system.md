@@ -22,7 +22,32 @@ Triángulo elemental MVP:
 | NEUTRO | Cualquiera | ×1.0 |
 | X | X (mismo) | ×1.0 |
 
-Post-launch (no implementado): Viento, Rayo, Sombra.
+**Canon definitivo 27/05** — 6 elementos totales: VIENTO (4), LUZ (5), SOMBRA (6) agregados al enum. Triángulo secundario VIENTO > LUZ > SOMBRA > VIENTO. Cross-triángulo (primario vs secundario): ×1.0 neutral.
+
+| Atacante | Defensor | Mult |
+|---|---|---|
+| Viento | Luz | ×1.5 |
+| Luz | Sombra | ×1.5 |
+| Sombra | Viento | ×1.5 |
+| Luz | Viento | ×0.66 |
+| Sombra | Luz | ×0.66 |
+| Viento | Sombra | ×0.66 |
+| Fuego/Agua/Tierra | Viento/Luz/Sombra | ×1.0 (cross-triángulo) |
+| Viento/Luz/Sombra | Fuego/Agua/Tierra | ×1.0 (cross-triángulo) |
+
+**Status synergy on-hit (30% chance, HitboxComponent + Projectile, rediseño 27/05 — eje natural vs cósmico):**
+
+*Eje natural (control + daño elemental puro):*
+- FUEGO → **Quemadura** (DOT 3s rápido)
+- AGUA → **Congelación** (-30% velocidad 2s)
+- TIERRA → **Fractura** (próximo golpe recibido +20% dmg, single-use, ventana 5s)
+- VIENTO → **Desequilibrio** (interrumpe ataque actual + 1.5s CD penalty)
+
+*Eje cósmico (alteración de stats + supervivencia + maldiciones):*
+- LUZ → **Bendición Divina** — vampire heal: cura 5% HP máx al **atacante** (no aplica status al defender)
+- SOMBRA → **Miasma** — DOT 5s + bypass armor + halve generación de Furia del defender
+
+Detalle completo en `.claude/docs/habilidades_generales.md` §7.5.
 
 ---
 

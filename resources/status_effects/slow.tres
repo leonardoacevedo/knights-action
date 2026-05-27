@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://status_slow"]
+
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+id = &"slow"
+duration = 2.0
+magnitude = 0.5
+tick_interval = 0.0
+stack_mode = 0
+magnitude_policy = 1
+display_name = "Ralentizado"
+color = Color(0.5, 0.7, 1, 1)

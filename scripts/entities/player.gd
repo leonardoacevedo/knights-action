@@ -18,6 +18,16 @@ const ATTACK_ACTIVE_END := 0.18
 const PLAYER_ARROW_SCENE: PackedScene = preload("res://scenes/projectiles/projectile_arrow.tscn")
 const PLAYER_FIREBALL_SCENE: PackedScene = preload("res://scenes/projectiles/projectile_fireball.tscn")
 
+## Status effects que el player aplica a sí mismo (post-dash buffs + Espíritu Marcial)
+## o que enemies aplican vía API pública (slow / stun / burn). El componente
+## `status_effects` trackea lifecycle; el player consume vía `has(id) / get_magnitude(id)`.
+const STATUS_SLOW: StatusEffectData = preload("res://resources/status_effects/slow.tres")
+const STATUS_ESPIRITU_MARCIAL: StatusEffectData = preload("res://resources/status_effects/espiritu_marcial.tres")
+const STATUS_POST_DASH_DAMAGE: StatusEffectData = preload("res://resources/status_effects/post_dash_damage.tres")
+const STATUS_POST_DASH_INVIS: StatusEffectData = preload("res://resources/status_effects/post_dash_invis.tres")
+const STATUS_STUN: StatusEffectData = preload("res://resources/status_effects/stun.tres")
+const STATUS_BURN: StatusEffectData = preload("res://resources/status_effects/burn.tres")
+
 @export var team: int = 1
 
 # Referencias a hijos (resueltas en _ready).
@@ -49,14 +59,14 @@ var _last_damage_shake_ms: int = -DAMAGE_SHAKE_COOLDOWN_MS
 ## FUEGO 3pc: si true, el próximo golpe hace AoE. Se activa al matar un enemy.
 var _fuego_next_attack_aoe: bool = false
 
-## Multiplicador sobre SPEED. Seteado por PlayerStatsComponent vía MOVE_SPEED_PCT.
+## Multiplicador sobre SPEED. Seteado por PlayerStatsComponent vía MOVE_SPEED_PCT
+## + bump multiplicativo si VIENTO 2pc set bonus está activo.
 var move_speed_mult: float = 1.0
 
-## Slow externo aplicado por skills enemigas (ej. Mareo Frío de la Cazadora).
-## Multiplicador sobre la SPEED final. 1.0 = sin slow. 0.5 = mitad de velocidad.
-## Decrementa con `_external_speed_timer`. Cuando expira vuelve a 1.0.
-var _external_speed_mult: float = 1.0
-var _external_speed_timer: float = 0.0
+## LUZ 2pc set bonus — regen pasivo HP/segundo. Seteado por PlayerStatsComponent.
+## 0 = sin regen. Tickea en _physics_process via accumulator.
+var _luz_passive_regen_per_sec: float = 0.0
+var _luz_regen_accum: float = 0.0
 
 ## Tank R2 que tiene al player en TAUNT. Mientras != null:
 ## - El facing del player se fuerza hacia el tank (ignora input lateral).
@@ -68,24 +78,12 @@ var _external_speed_timer: float = 0.0
 var _taunt_source: Node2D = null
 const TAUNT_PULL_STOP_DISTANCE: float = 35.0
 
-## Post-dash buff de Golpe Tras Dash (skill agil_golpe_tras_dash).
-## Si > 0.0, el próximo golpe aplica este multiplicador extra de daño.
-var _post_dash_damage_mult: float = 0.0
-const POST_DASH_DAMAGE_BUFF_DURATION: float = 0.5   # segundos
-var _post_dash_damage_timer: float = 0.0
-
-## Post-dash buff de Sombra del Valle (skill agil_sombra_del_valle):
-## invisibilidad 0.5s + garantía ventaja elemental en primer golpe post-dash.
-const POST_DASH_INVIS_DURATION: float = 0.5   # segundos
-var _post_dash_invis_timer: float = 0.0
-var _post_dash_invis_active: bool = false
-
-## Buff temporal de Espíritu Marcial (skill guerrero_espiritu_marcial):
-## +20% daño físico durante 2s tras absorber un bloqueo. Stackea duración, no magnitud.
-const ESPIRITU_MARCIAL_DURATION: float = 2.0
-const ESPIRITU_MARCIAL_BONUS: float = 0.20
-var _espiritu_marcial_timer: float = 0.0
-var _espiritu_marcial_active: bool = false
+## Status effects (slow, espiritu_marcial, post_dash_*, burn, stun, etc).
+## Instanciado en _ready(). Lifecycle (tick + expiración) lo maneja el componente.
+## Side effects (modificar velocity, alpha, hitbox.force_elem_advantage, take_damage)
+## se aplican acá en player.gd vía signals `effect_applied/expired/ticked` o queries.
+## Migrado 27/05: reemplaza _external_speed_*, _espiritu_marcial_*, _post_dash_*.
+var status_effects: StatusEffectComponent
 
 
 func _ready() -> void:
@@ -99,6 +97,15 @@ func _ready() -> void:
 	# AGUA 3pc: usar la hitbox del player como area de detección durante el dash.
 	# La hitbox ya cubre el cuerpo del player, suficiente para detectar solapamiento.
 	dash.detection_area = hitbox
+
+	# StatusEffectComponent: hijo runtime para no tocar player.tscn.
+	# Maneja slow, espiritu_marcial, post_dash_*, burn, stun, etc.
+	status_effects = StatusEffectComponent.new()
+	status_effects.name = "StatusEffects"
+	add_child(status_effects)
+	status_effects.effect_applied.connect(_on_status_applied)
+	status_effects.effect_expired.connect(_on_status_expired)
+	status_effects.effect_ticked.connect(_on_status_ticked)
 
 	# Inyectar referencias en PlayerStatsComponent antes de recalcular.
 	player_stats.health = health
@@ -134,6 +141,18 @@ func _ready() -> void:
 	# Demo: agregar items al inventario SIN equipar.
 	# Player arranca sin equipo para playtest balance base; equipa desde la UI in-game.
 	call_deferred("_add_default_items_to_inventory")
+
+	# Sistema de skills activas (Furia → habilidad). Loadout default 3 slots:
+	# 1=Embestida (gap closer + buff swing), 2=Bola de Fuego (proyectil), 3=Onda Sísmica (AoE + BURN).
+	# Si SaveSystem ya restauró slots (loaded from disk), respetamos esa selección.
+	# Equip default solo si el slot quedó vacío tras load (primera sesión o save sin loadout).
+	PlayerSkillSystem.register_player(self)
+	if PlayerSkillSystem.get_equipped(0) == null:
+		PlayerSkillSystem.equip(0, preload("res://resources/player_skills/embestida.tres"))
+	if PlayerSkillSystem.get_equipped(1) == null:
+		PlayerSkillSystem.equip(1, preload("res://resources/player_skills/bola_fuego.tres"))
+	if PlayerSkillSystem.get_equipped(2) == null:
+		PlayerSkillSystem.equip(2, preload("res://resources/player_skills/onda_sismica.tres"))
 
 
 func _add_default_items_to_inventory() -> void:
@@ -171,6 +190,14 @@ func set_move_speed_mult(mult: float) -> void:
 	move_speed_mult = mult
 
 
+## API para PlayerStatsComponent: LUZ 2pc set bonus regen pasivo HP/segundo.
+## 0 = sin regen (default). Player.gd tickea en _physics_process via _luz_regen_accum.
+func set_luz_passive_regen(rate_per_sec: float) -> void:
+	_luz_passive_regen_per_sec = max(0.0, rate_per_sec)
+	if _luz_passive_regen_per_sec <= 0.0:
+		_luz_regen_accum = 0.0
+
+
 ## API para Enemy (tank R2) cuando inicia/termina su Taunt MMO clásico.
 ## Mientras el tank tenga taunt activo, el player es arrastrado físicamente hacia él.
 ## Decisión Leo: aunque se sienta "roto" en feel, el taunt DEBE ser así para que cumpla
@@ -181,17 +208,27 @@ func set_taunt_source(tank: Node2D) -> void:
 
 ## API para skills de bosses que aplican slow temporal al player.
 ## mult: multiplicador sobre SPEED (0.5 = 50% velocidad).
-## duration: segundos del efecto. Si ya hay slow activo, gana el más restrictivo.
+## duration: segundos del efecto. Si ya hay slow activo, gana el más restrictivo
+## (magnitude_policy KEEP_MIN) y la duración mayor (REFRESH).
 func apply_slow(mult: float, duration: float) -> void:
 	if mult <= 0.0 or duration <= 0.0:
 		return
-	# Si ya hay slow activo, conservar el mult más bajo (más restrictivo) y el timer más largo.
-	if _external_speed_timer > 0.0:
-		_external_speed_mult = min(_external_speed_mult, mult)
-		_external_speed_timer = max(_external_speed_timer, duration)
-	else:
-		_external_speed_mult = mult
-		_external_speed_timer = duration
+	if status_effects == null:
+		return  # _ready aún no corrió — caso edge (boss spawn antes que el player)
+	# Si ya hay slow, refrescar a la duration mayor — REFRESH usa la pasada,
+	# pero si la actual remaining es mayor preservamos eso manualmente.
+	var current_remaining: float = status_effects.get_remaining(&"slow")
+	var final_dur: float = max(duration, current_remaining)
+	status_effects.apply(STATUS_SLOW, null, mult, final_dur)
+
+
+## API genérica para aplicar cualquier status effect al player (skills, AoEs, DOTs).
+## Equivalente a llamar status_effects.apply(...) — wrap para API consistente.
+func apply_status_effect(data: StatusEffectData, source: Node = null, \
+		magnitude_override: float = NAN, duration_override: float = NAN) -> void:
+	if status_effects == null:
+		return
+	status_effects.apply(data, source, magnitude_override, duration_override)
 
 
 ## API para skills de enemies que aplican knockback (ej. R2 melee embestida).
@@ -209,13 +246,28 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 
-	_tick_post_dash_buffs(delta)
-	_tick_espiritu_marcial(delta)
-	_tick_external_slow(delta)
+	# StatusEffectComponent tickea solo (lifecycle + tick signals). Lo único que
+	# resta es expirar post_dash_invis residual si no llegó a atacar — eso lo
+	# manejamos en _on_status_expired.
+	_tick_luz_passive_regen(delta)
 	_apply_gravity(delta)
 	_handle_input()
 	_tick_attack(delta)
 	move_and_slide()
+
+
+## LUZ 2pc set bonus — regen pasivo HP cada 1.0s. Accumulator-based.
+func _tick_luz_passive_regen(delta: float) -> void:
+	if _luz_passive_regen_per_sec <= 0.0:
+		return
+	if health == null or not health.is_alive():
+		return
+	if health.current_health >= health.max_health:
+		return
+	_luz_regen_accum += delta
+	if _luz_regen_accum >= 1.0:
+		_luz_regen_accum -= 1.0
+		health.heal(int(round(_luz_passive_regen_per_sec)))
 
 
 func _apply_gravity(delta: float) -> void:
@@ -224,6 +276,15 @@ func _apply_gravity(delta: float) -> void:
 
 
 func _handle_input() -> void:
+	# STUN: bloquea TODO input mientras esté activo. Velocidad horizontal va a 0,
+	# vertical sigue gravedad. Cap canónico 0.3s (ver habilidades_generales.md §3 ⛔).
+	if status_effects.has(&"stun"):
+		velocity.x = move_toward(velocity.x, 0.0, SPEED * 2.0)
+		shield.set_blocking(false)
+		if not is_attacking:
+			sprite.set_state(StickFigure.State.IDLE)
+		return
+
 	# is_action_pressed (no just_pressed) → joystick "arriba" mantiene salto al
 	# tocar el suelo. Funciona idéntico para teclado: si mantenés Space, también
 	# saltás de nuevo apenas aterrizás. Comportamiento de plataformero mobile.
@@ -234,6 +295,12 @@ func _handle_input() -> void:
 	var can_block: bool = not is_attacking and not dash.is_dashing
 	var wants_block: bool = Input.is_action_pressed("block") and can_block
 	shield.set_blocking(wants_block)
+
+	# Slow externo (Mareo Frío, AoE de fuego/agua, etc.) leído del componente.
+	# Default 1.0 = sin slow. KEEP_MIN policy → más restrictivo gana.
+	# FREEZE se multiplica encima (slow + congelado stackean).
+	var slow_mult: float = status_effects.get_magnitude(&"slow", 1.0) \
+		* status_effects.get_magnitude(&"freeze", 1.0)
 
 	# TAUNT MMO: si hay tank tauntando, forzar facing + movement horizontal hacia él.
 	# Override total sobre el input lateral. Player puede saltar/atacar/bloquear/dashear.
@@ -248,7 +315,7 @@ func _handle_input() -> void:
 			velocity.x = 0.0
 		else:
 			var speed_mult_t: float = 0.5 if shield.is_blocking else 1.0
-			velocity.x = float(taunt_facing) * SPEED * speed_mult_t * move_speed_mult * _external_speed_mult
+			velocity.x = float(taunt_facing) * SPEED * speed_mult_t * move_speed_mult * slow_mult
 	else:
 		var dir: float = Input.get_axis("ui_left", "ui_right")
 		if dir != 0.0:
@@ -257,9 +324,9 @@ func _handle_input() -> void:
 				_apply_facing(new_facing)
 			# Velocidad reducida al 50% mientras bloqueás (decisión Leo).
 			# move_speed_mult aplica bonus de skill MOVE_SPEED_PCT encima.
-			# _external_speed_mult aplica slow de skills enemigas (ej. Mareo Frío).
+			# slow_mult aplica slow de skills enemigas (ej. Mareo Frío).
 			var speed_mult: float = 0.5 if shield.is_blocking else 1.0
-			velocity.x = dir * SPEED * speed_mult * move_speed_mult * _external_speed_mult
+			velocity.x = dir * SPEED * speed_mult * move_speed_mult * slow_mult
 		else:
 			velocity.x = move_toward(velocity.x, 0.0, SPEED)
 
@@ -274,6 +341,15 @@ func _handle_input() -> void:
 		if shield.is_blocking:
 			shield.set_blocking(false)
 		_start_attack()
+
+	# Skills activas — slots 0/1/2 mapeados a teclas 1/2/3 (ver project.godot input map).
+	# `Input.is_action_just_pressed` retorna false si la acción no existe (Godot 4).
+	if InputMap.has_action("skill_1") and Input.is_action_just_pressed("skill_1"):
+		PlayerSkillSystem.try_use(0)
+	if InputMap.has_action("skill_2") and Input.is_action_just_pressed("skill_2"):
+		PlayerSkillSystem.try_use(1)
+	if InputMap.has_action("skill_3") and Input.is_action_just_pressed("skill_3"):
+		PlayerSkillSystem.try_use(2)
 
 	# Estado visual.
 	if not is_attacking:
@@ -296,20 +372,20 @@ func _start_attack() -> void:
 	_apply_facing(current_facing)
 	# Multiplicador base: Momentum.
 	var dmg_mult: float = MomentumSystem.damage_multiplier()
-	# Buff temporal Golpe Tras Dash: +X% daño si el timer está activo.
-	if _post_dash_damage_timer > 0.0 and _post_dash_damage_mult > 0.0:
-		dmg_mult *= (1.0 + _post_dash_damage_mult)
-		_post_dash_damage_timer = 0.0  # consumir buff al atacar
-	# Buff temporal Espíritu Marcial: +20% daño tras bloquear.
-	if _espiritu_marcial_active:
-		dmg_mult *= (1.0 + ESPIRITU_MARCIAL_BONUS)
+	# Buff temporal Golpe Tras Dash: +X% daño si está activo. Se consume al atacar.
+	if status_effects.has(&"post_dash_damage"):
+		dmg_mult *= (1.0 + status_effects.get_magnitude(&"post_dash_damage"))
+		status_effects.remove(&"post_dash_damage")
+	# Buff temporal Espíritu Marcial: +X% daño físico tras absorber bloqueo.
+	if status_effects.has(&"espiritu_marcial"):
+		dmg_mult *= (1.0 + status_effects.get_magnitude(&"espiritu_marcial"))
 	hitbox.damage_multiplier = dmg_mult
-	# Sombra del Valle: si el buff de invisibilidad está activo, forzar ventaja elemental
-	# en este swing. El flag se consume en hitbox._on_area_entered al primer impacto.
-	if _post_dash_invis_active:
+	# Sombra del Valle: si invis está activo, forzar ventaja elemental en este swing.
+	# Flag de hitbox se consume en hitbox._on_area_entered al primer impacto.
+	# Removemos el efecto acá — el visual modulate.a se restaura en _on_status_expired.
+	if status_effects.has(&"post_dash_invis"):
 		hitbox.force_elem_advantage = true
-		_post_dash_invis_active = false
-		_post_dash_invis_timer = 0.0
+		status_effects.remove(&"post_dash_invis")
 
 	# Detectar tipo de arma equipada para elegir entre melee y ranged.
 	# Sword/Hammer/None → melee (hitbox toggle clásico).
@@ -366,7 +442,11 @@ func _tick_attack(delta: float) -> void:
 
 func _on_hit_landed(target: HurtboxComponent) -> void:
 	# Furia escala con Momentum (mismo multiplicador que daño).
-	furia.add_on_hit(MomentumSystem.furia_multiplier())
+	# MIASMA (SOMBRA synergy): reduce -50% generación de Furia mientras esté activo.
+	var furia_mult: float = MomentumSystem.furia_multiplier()
+	if status_effects != null and status_effects.has(&"miasma"):
+		furia_mult *= 0.5
+	furia.add_on_hit(furia_mult)
 	MomentumSystem.on_hit_landed()
 	# Feedback "weight": mini freeze + shake leve al conectar.
 	HitStop.freeze(0.05)
@@ -423,11 +503,11 @@ func _on_hit_blocked(_amount: int, _source: HitboxComponent) -> void:
 	# Feedback "absorb": mini freeze + shake leve (más sutil que recibir daño).
 	HitStop.freeze(0.06)
 	CameraShake.shake(2.0, 0.10)
-	# Espíritu Marcial: buff temporal de contraataque (stackea duración).
+	# Espíritu Marcial: buff temporal de contraataque. StackMode EXTEND en el .tres
+	# acumula duración (stack ilimitado contra runs largos de bloqueos seguidos).
 	var prog: Node = get_node_or_null("/root/PlayerProgression")
 	if prog != null and prog.is_unlocked(&"guerrero_espiritu_marcial"):
-		_espiritu_marcial_active = true
-		_espiritu_marcial_timer = ESPIRITU_MARCIAL_DURATION
+		status_effects.apply(STATUS_ESPIRITU_MARCIAL)
 
 
 ## Recarga de cargas al completar etapa. GDD §4.3 (PvE).
@@ -441,6 +521,9 @@ func _on_died() -> void:
 	# Soltar bloqueo si estaba activo (evita aura/postura colgada tras morir).
 	if shield != null and shield.is_blocking:
 		shield.set_blocking(false)
+	# Desregistrar del PlayerSkillSystem para que no quede referencia colgada.
+	if PlayerSkillSystem != null:
+		PlayerSkillSystem.unregister_player(self)
 	# Mostrar pantalla de Game Over con botón Reintentar.
 	_spawn_game_over_screen()
 
@@ -510,6 +593,7 @@ func _spawn_player_projectile() -> void:
 	var final_damage: int = int(round(float(hitbox.damage) * MomentumSystem.damage_multiplier()))
 	# Elemento del arma: ya está en hitbox.element (seteado en _start_attack).
 	proj.launch(Vector2(current_facing, 0.0), final_damage, team, hitbox.element)
+	proj.set_source(self)  # LUZ vampire heal tracking
 	# Suscribirse al hit del proyectil para ganar Furia + Momentum al impactar.
 	proj.hit_landed.connect(_on_projectile_hit_landed)
 	get_tree().current_scene.add_child(proj)
@@ -587,59 +671,59 @@ func _is_fuego_3pc_active() -> bool:
 # ─── Buffs temporales post-dash ──────────────────────────────────────────────
 
 ## Activado por DashComponent.dash_ended. Si el player tiene el skill desbloqueado,
-## inicia los timers de buff post-dash.
-## Golpe Tras Dash (+10% daño / 0.5s) y Sombra del Valle (invis + ventaja elemental).
+## aplica buffs post-dash via StatusEffectComponent.
+## Golpe Tras Dash (+X% daño / 0.5s) y Sombra del Valle (invis + ventaja elemental).
 func _on_dash_ended() -> void:
 	var prog: Node = get_node_or_null("/root/PlayerProgression")
 	if prog == null:
 		return
-	# Golpe Tras Dash: buff si skill desbloqueado. El bonus real viene del skill_pct.
+	# Golpe Tras Dash: la magnitud viene del skill_pct del nodo (POST_DASH_DAMAGE_PCT).
+	# NO suma DAMAGE_PCT global (evita double-count con espiritu_marcial / sombra_del_valle).
 	if prog.is_unlocked(&"agil_golpe_tras_dash"):
-		# Solo el bonus específico del skill, NO suma DAMAGE_PCT global (evita double-count
-		# con bonus permanente de otros skills como espiritu_marcial / sombra_del_valle).
-		_post_dash_damage_mult = prog.get_skill_bonus_pct(SkillEffect.Stat.POST_DASH_DAMAGE_PCT)
-		_post_dash_damage_timer = POST_DASH_DAMAGE_BUFF_DURATION
-	# Sombra del Valle: buff si skill desbloqueado.
+		var dmg_pct: float = prog.get_skill_bonus_pct(SkillEffect.Stat.POST_DASH_DAMAGE_PCT)
+		status_effects.apply(STATUS_POST_DASH_DAMAGE, null, dmg_pct)
+	# Sombra del Valle: invis + garantía ventaja elemental al próximo swing.
+	# Side effect visual (modulate.a) lo aplica _on_status_applied.
 	if prog.is_unlocked(&"agil_sombra_del_valle"):
-		_post_dash_invis_active = true
-		_post_dash_invis_timer = POST_DASH_INVIS_DURATION
-		# Invisibilidad visual: reducir modulate.a mientras el timer corra.
+		status_effects.apply(STATUS_POST_DASH_INVIS)
+
+
+## Side effects visuales / lógicos al aplicarse un status effect.
+func _on_status_applied(id: StringName, _magnitude: float, _source: Node) -> void:
+	if id == &"post_dash_invis":
 		modulate.a = 0.35
+	elif id == &"desequilibrio":
+		# VIENTO synergy: interrumpe swing actual si el player está atacando.
+		# No bloquea inputs futuros — solo el ataque en curso se cancela.
+		if is_attacking:
+			is_attacking = false
+			_is_ranged_attack = false
+			_projectile_fired_this_attack = false
+			if hitbox != null:
+				hitbox.set_active(false)
 
 
-## Avanza timers de buffs post-dash y limpia efectos expirados.
-func _tick_post_dash_buffs(delta: float) -> void:
-	if _post_dash_damage_timer > 0.0:
-		_post_dash_damage_timer -= delta
-		if _post_dash_damage_timer <= 0.0:
-			_post_dash_damage_timer = 0.0
-			_post_dash_damage_mult = 0.0
-
-	if _post_dash_invis_timer > 0.0:
-		_post_dash_invis_timer -= delta
-		if _post_dash_invis_timer <= 0.0:
-			_post_dash_invis_timer = 0.0
-			_post_dash_invis_active = false
-			hitbox.force_elem_advantage = false  # limpiar si no llegó a atacar
-			modulate.a = 1.0  # restaurar visibilidad
+## Side effects visuales / lógicos al expirar un status effect.
+## Restaura alpha, limpia force_elem_advantage si nunca llegó a atacar, etc.
+func _on_status_expired(id: StringName, _source: Node) -> void:
+	if id == &"post_dash_invis":
+		modulate.a = 1.0
+		if hitbox != null:
+			hitbox.force_elem_advantage = false
 
 
-## Avanza timer de Espíritu Marcial y limpia el flag cuando expira.
-func _tick_espiritu_marcial(delta: float) -> void:
-	if _espiritu_marcial_timer > 0.0:
-		_espiritu_marcial_timer -= delta
-		if _espiritu_marcial_timer <= 0.0:
-			_espiritu_marcial_timer = 0.0
-			_espiritu_marcial_active = false
-
-
-## Avanza timer del slow externo (ej. Mareo Frío de la Cazadora) y restaura speed.
-func _tick_external_slow(delta: float) -> void:
-	if _external_speed_timer > 0.0:
-		_external_speed_timer -= delta
-		if _external_speed_timer <= 0.0:
-			_external_speed_timer = 0.0
-			_external_speed_mult = 1.0
+## Tick de DOTs (BURN/MIASMA aplican daño cada N segundos). Magnitud = damage por tick.
+## MIASMA (SOMBRA): bypass armor — no pasa por hurtbox.flat_defense, daño directo a HP.
+func _on_status_ticked(id: StringName, magnitude: float, _source: Node) -> void:
+	match id:
+		&"burn":
+			var dmg_b: int = int(round(magnitude))
+			if dmg_b > 0:
+				hurtbox.receive_hit(dmg_b, null, 0)
+		&"miasma":
+			var dmg_m: int = int(round(magnitude))
+			if dmg_m > 0 and health != null:
+				health.take_damage(dmg_m)  # bypass armor (eje cósmico)
 
 
 # ─── Flags de 3pc — actualizados al cambiar equipo ───────────────────────────

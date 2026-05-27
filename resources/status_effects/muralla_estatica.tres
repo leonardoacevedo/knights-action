@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://status_muralla_estatica"]
+
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+id = &"muralla_estatica"
+duration = 1.2
+magnitude = 1.0
+tick_interval = 0.0
+stack_mode = 0
+magnitude_policy = 0
+display_name = "Muralla Estática"
+color = Color(0.4, 0.85, 1, 1)

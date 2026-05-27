@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_mage"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_mage_canalizar"
+enemy_class = 3
+telegraph_sec = 1.2
+cd_min = 9.0
+cd_max = 11.0
+attack_duration = 0.4
+damage_mult = 1.5
+telegraph_type = &"channel"
+params = {
+"fireball_scale": 1.8,
+}
+display_name = "Canalizar Fireball"
+description = "Mage R2: canalización 1.2s → fireball ×1.8 scale ×1.5 daño."

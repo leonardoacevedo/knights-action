@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_archer"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_archer_burst"
+enemy_class = 2
+telegraph_sec = 0.8
+cd_min = 7.0
+cd_max = 9.0
+attack_duration = 0.35
+damage_mult = 1.0
+telegraph_type = &"windup"
+params = {
+"projectile_count": 3,
+"spread_deg": 15.0,
+}
+display_name = "Ráfaga 3 Flechas"
+description = "Archer R2: 3 proyectiles spread ±15° vertical. Daño base (3 flechas = 3× daño efectivo)."

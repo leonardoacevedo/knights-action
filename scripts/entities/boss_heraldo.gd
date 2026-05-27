@@ -305,6 +305,7 @@ func _spawn_orbe_vacio() -> void:
 	var dir: Vector2 = (aim - proj.global_position).normalized()
 	var dmg: int = int(round(float(hitbox.damage) * ORBE_DAMAGE_MULT))
 	proj.launch(dir, dmg, team, element)
+	proj.set_source(self)
 	proj.scale = Vector2(1.5, 1.5)
 	proj.modulate = Color(0.7, 0.3, 1.0, 1.0)
 	get_tree().current_scene.add_child(proj)

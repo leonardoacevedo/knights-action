@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="DropTable" format=3 uid="uid://dt_zona3_boss_materials"]
+
+[ext_resource type="Script" path="res://scripts/data/drop_table.gd" id="1_dttable"]
+[ext_resource type="Script" path="res://scripts/data/drop_entry.gd" id="2_dtentry"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_abisal.tres" id="3_nucleo"]
+[ext_resource type="Resource" path="res://resources/materials/cristal_escarcha.tres" id="4_cristal"]
+[ext_resource type="Resource" path="res://resources/materials/gota_lamento.tres" id="5_gota"]
+
+[sub_resource type="Resource" id="Entry_z3b_nucleo"]
+script = ExtResource("2_dtentry")
+drop_type = 1
+material_data = ExtResource("3_nucleo")
+material_count_min = 2
+material_count_max = 4
+weight = 1.0
+drop_chance = 1.0
+
+[sub_resource type="Resource" id="Entry_z3b_cristal"]
+script = ExtResource("2_dtentry")
+drop_type = 1
+material_data = ExtResource("4_cristal")
+material_count_min = 3
+material_count_max = 6
+weight = 1.0
+drop_chance = 1.0
+
+[sub_resource type="Resource" id="Entry_z3b_gota"]
+script = ExtResource("2_dtentry")
+drop_type = 1
+material_data = ExtResource("5_gota")
+material_count_min = 5
+material_count_max = 10
+weight = 1.0
+drop_chance = 1.0
+
+[resource]
+script = ExtResource("1_dttable")
+entries = Array[ExtResource("2_dtentry")]([SubResource("Entry_z3b_nucleo"), SubResource("Entry_z3b_cristal"), SubResource("Entry_z3b_gota")])

@@ -88,12 +88,12 @@ Formato: `[Tipo de lugar] de [Tema/Mito]`
 Canon:
 - Valle de los Ecos (Tierra).
 
-Futuro (sugerencias):
+Futuro (sugerencias). **Canon definitivo 27/05:** 6 elementos totales (Fuego, Agua, Tierra, Viento, Luz, Sombra — RAYO descartado, LUZ ocupa el slot semántico):
 - Forja del Aliento Roto (Fuego).
 - Maremoto de la Luna Triste (Agua).
 - Páramo del Cántico Mudo (Sombra, post-MVP).
 - Cresta de los Vientos Ciegos (Viento, post-MVP).
-- Cumbre del Trueno Hundido (Rayo, post-MVP).
+- Cumbre de la Aurora Cegadora (Luz, post-MVP — antes "Cumbre del Trueno Hundido").
 
 ## Descripciones de items
 

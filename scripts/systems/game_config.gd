@@ -322,35 +322,46 @@ static func gold_for_kill(rarity: int) -> int:
 	return GOLD_PER_RARITY.get(rarity, 0)
 
 
-# ─── SISTEMA ELEMENTAL (GDD §5.3) ────────────────────────────────────────────
+# ─── SISTEMA ELEMENTAL (GDD §5.3 + extensión 27/05) ──────────────────────────
 
-## Modificador de ventaja elemental. Triángulo: Fuego > Tierra > Agua > Fuego.
+## Modificador de ventaja elemental. GDD §5.3.
 const ELEMENT_ADVANTAGE_MULT: float = 1.5
 ## Modificador de desventaja elemental.
 const ELEMENT_DISADVANTAGE_MULT: float = 0.66
+
+## Dos triángulos independientes:
+##  - Primario:   FUEGO > TIERRA > AGUA > FUEGO    (canon GDD)
+##  - Secundario: VIENTO > LUZ > SOMBRA > VIENTO   (canon definitivo 27/05)
+## Cross-triángulo: 1.0 (neutral). Mismo elemento: 1.0.
+## Status synergy on-hit (30% chance, ver HitboxComponent._try_apply_element_status):
+## Diseño 27/05 — dos ejes:
+##  Eje natural (control + daño): FUEGO=Quemadura · AGUA=Congelación · TIERRA=Fractura · VIENTO=Desequilibrio.
+##  Eje cósmico (stats + supervivencia + maldiciones): LUZ=Bendición (vampire) · SOMBRA=Miasma (DOT bypass).
+const ELEMENT_ADVANTAGE: Dictionary = {
+	# Triángulo primario
+	1: 3,  # FUEGO vence TIERRA
+	3: 2,  # TIERRA vence AGUA
+	2: 1,  # AGUA vence FUEGO
+	# Triángulo secundario
+	4: 5,  # VIENTO esparce LUZ
+	5: 6,  # LUZ ilumina/disipa SOMBRA
+	6: 4,  # SOMBRA ahoga VIENTO
+}
+
 
 ## Retorna el modificador elemental entre atacante y defensor.
 ## Usa ItemData.Element (int) como base. GDD §5.3.
 ## - Ventaja: 1.5
 ## - Desventaja: 0.66
 ## - Neutral / NEUTRO involucrado: 1.0
+## - Cross-triángulo (FUEGO vs VIENTO, etc.): 1.0
 static func element_modifier(attacker: int, defender: int) -> float:
-	# NEUTRO contra cualquiera o cualquiera contra NEUTRO → sin modificador.
 	if attacker == ItemData.Element.NEUTRO or defender == ItemData.Element.NEUTRO:
 		return 1.0
-	# Mismo elemento → neutral (sin ventaja propia contra sí mismo).
 	if attacker == defender:
 		return 1.0
-	# Triángulo: Fuego > Tierra > Agua > Fuego.
-	const ADVANTAGE: Dictionary = {
-		# Usando valores int directos para evitar dependencia en init estático.
-		# ItemData.Element.FUEGO=1, AGUA=2, TIERRA=3
-		1: 3,  # Fuego vence Tierra
-		3: 2,  # Tierra vence Agua
-		2: 1,  # Agua vence Fuego
-	}
-	if ADVANTAGE.get(attacker, -1) == defender:
+	if ELEMENT_ADVANTAGE.get(attacker, -1) == defender:
 		return ELEMENT_ADVANTAGE_MULT
-	if ADVANTAGE.get(defender, -1) == attacker:
+	if ELEMENT_ADVANTAGE.get(defender, -1) == attacker:
 		return ELEMENT_DISADVANTAGE_MULT
 	return 1.0

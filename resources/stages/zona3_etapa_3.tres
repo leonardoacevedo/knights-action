@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="StageData" load_steps=6 format=3 uid="uid://stg_zona3_e3"]
+
+[ext_resource type="Script" path="res://scripts/data/stage_data.gd" id="1_stage"]
+[ext_resource type="Script" path="res://scripts/data/enemy_spawn_entry.gd" id="2_entry"]
+[ext_resource type="Resource" path="res://resources/stages/drop_tables/zona3_materials.tres" id="3_drops"]
+[ext_resource type="Resource" path="res://resources/enemies/drop_tables/enemy_r1_materials.tres" id="4_dr1"]
+
+[sub_resource type="Resource" id="Entry_z3e3_archer_r2"]
+script = ExtResource("2_entry")
+enemy_class = 2
+rarity = 1
+count = 2
+element = 2
+material_drops = ExtResource("4_dr1")
+
+[sub_resource type="Resource" id="Entry_z3e3_melee_r1"]
+script = ExtResource("2_entry")
+enemy_class = 0
+rarity = 0
+count = 3
+element = 2
+material_drops = ExtResource("4_dr1")
+
+[resource]
+script = ExtResource("1_stage")
+stage_index = 3
+display_name = "Trampas de Loto"
+subtitle = "Las Náyades dejaron lotos de hielo en el suelo. Pisar uno te cuesta caro."
+spawns = Array[ExtResource("2_entry")]([SubResource("Entry_z3e3_archer_r2"), SubResource("Entry_z3e3_melee_r1")])
+is_boss = false
+ambient_tint = Color(0.60, 0.78, 1.20, 1.0)
+material_drops = ExtResource("3_drops")

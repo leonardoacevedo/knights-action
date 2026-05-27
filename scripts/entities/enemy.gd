@@ -68,7 +68,7 @@ const MULTI_HOP_DEACTIVATE_DX := JUMP_TRIGGER_MAX_DISTANCE * 0.80 # 200 → si d
 ## Elemento del enemy. Seteable desde EnemySpawnEntry vía world.gd.
 ## Afecta el modifier elemental del daño que recibe y del daño que aplica.
 ## NEUTRO=0 = sin ventaja/desventaja. GDD §5.3.
-@export_enum("Neutro:0", "Fuego:1", "Agua:2", "Tierra:3") var element: int = 0
+@export_enum("Neutro:0", "Fuego:1", "Agua:2", "Tierra:3", "Viento:4", "Luz:5", "Sombra:6") var element: int = 0
 
 ## Escena del proyectil que dispara este enemy. Null para clases melee/tank.
 ## Asignar en el .tscn variante (archer → projectile_arrow.tscn, mage → projectile_fireball.tscn).
@@ -79,6 +79,12 @@ const MULTI_HOP_DEACTIVATE_DX := JUMP_TRIGGER_MAX_DISTANCE * 0.80 # 200 → si d
 @onready var hitbox: HitboxComponent = $Hitbox
 @onready var hurtbox: HurtboxComponent = $Hurtbox
 @onready var _block_handler: EnemyBlockHandler = $EnemyBlockHandler
+
+## StatusEffectComponent — slow / stun / burn aplicados por skills del jugador o
+## proyectiles especiales. Instanciado en _ready(); lifecycle lo maneja el componente.
+## CHASE multiplica speed por get_magnitude(&"slow", 1.0). STUN gate detiene _tick_state.
+## BURN tickea damage vía health.take_damage en _on_status_ticked.
+var status_effects: StatusEffectComponent
 
 var state: State = State.IDLE
 var current_facing: int = 1
@@ -122,6 +128,24 @@ var _dodge_cooldown: float = 0.0
 var _skill_cooldown: float = 0.0
 ## Flag: el skill disparó el proyectil especial en este ciclo.
 var _skill_fired_this_cast: bool = false
+
+## Skills R3 nuevas (27/05 — refactor pool §4 Set A/B):
+##  - Archer R3: Lluvia de Flechas (3 AoeTelegraph + drop radial damage)
+##  - Mage R3:   Lluvia de Meteoros (3 AoeTelegraph + drop BURN AoE)
+##  - Tank R3:   Muralla Estática (status &"muralla_estatica" 1.2s, invuln frontal)
+##  - Melee R3:  Sed de Sangre (sin cambios — buff propio existente)
+## Posiciones de drop guardadas en enter para usar en tick.
+var _r3_drop_positions: Array[Vector2] = []
+var _r3_drop_telegraphs_spawned: bool = false
+var _r3_drop_damage_applied: bool = false
+## Threshold (segundos en SKILL_ATTACK) para aplicar damage tras telegraph. 0.0 = al inicio.
+const R3_LLUVIA_DROP_TIME: float = 0.55
+## Duración total de skill_attack para Archer/Mage R3 nueva.
+const R3_LLUVIA_DURATION: float = 0.85
+## Radio del impacto de cada flecha/meteoro en suelo.
+const R3_LLUVIA_RADIUS: float = 42.0
+## Duración del status muralla_estatica del Tank R3.
+const R3_MURALLA_DURATION: float = 1.2
 ## Distancia del dash de esquiva lateral (px).
 const DODGE_DISTANCE: float = 120.0
 ## Velocidad horizontal del dash (px/s). Termina en < 0.25s a esta distancia.
@@ -194,9 +218,10 @@ const R2_TANK_TAUNT_DURATION: float = 3.0
 ## "romper al tank o no pegarle a nadie en su zona".
 const R2_TANK_TAUNT_REDIRECT: float = 1.0
 
-## Tabla de configuración del skill R2 por clase.
-## Keys: interos del enum EnemyClass (MELEE=0, TANK=1, ARCHER=2, MAGE=3).
-## Uso directo de enteros para evitar dependencia de parseo estático sobre GameConfig autoload.
+## Tabla de configuración del skill R2 por clase. **Fallback defensivo** desde 27/05:
+## la source of truth migró a `resources/enemy_skills/r2_{clase}.tres` cargado en
+## `_ready()` → `_r2_skill_data`. Esta const queda como red de seguridad si la .tres
+## faltara o tuviera un campo en 0.0. Para balance sin recompile editar el .tres.
 ## Sub-keys: telegraph_sec, cd_min, cd_max, attack_duration.
 ## Los valores de telegrafía cumplen GDD §7.3 R2: ≥0.5s ataques pesados.
 const R2_SKILL_TABLE: Dictionary = {
@@ -225,6 +250,18 @@ const R2_SKILL_TABLE: Dictionary = {
 		"attack_duration": 0.3,
 	},
 }
+
+## .tres por clase. Loaded once via preload — Godot resuelve scripts en parse time.
+const R2_SKILL_RESOURCES: Dictionary = {
+	0: preload("res://resources/enemy_skills/r2_melee.tres"),
+	1: preload("res://resources/enemy_skills/r2_tank.tres"),
+	2: preload("res://resources/enemy_skills/r2_archer.tres"),
+	3: preload("res://resources/enemy_skills/r2_mage.tres"),
+}
+
+## EnemySkillData asignado en _ready() según `enemy_class`. Source of truth de
+## telegraph_sec/cd/attack_duration/damage_mult/params para los métodos R2.
+var _r2_skill_data: EnemySkillData = null
 
 # Debug: cache para imprimir solo cuando cambia algo relevante.
 var _dbg_last_facing: int = 0
@@ -274,10 +311,11 @@ func _ready() -> void:
 	# Inicializar skill cooldown para R3 (empieza con un delay inicial antes del primer cast).
 	if rarity == GameConfig.EnemyRarity.R3:
 		_skill_cooldown = SKILL_COOLDOWN_MIN
+	# Cargar EnemySkillData para R2 según clase (.tres > R2_SKILL_TABLE fallback).
+	_r2_skill_data = R2_SKILL_RESOURCES.get(enemy_class, null) as EnemySkillData
 	# Inicializar cooldown R2 skill (R2 y R3 lo usan — R3 hereda la skill R2 de su clase).
 	if rarity == GameConfig.EnemyRarity.R2 or rarity == GameConfig.EnemyRarity.R3:
-		if R2_SKILL_TABLE.has(enemy_class):
-			_skill_r2_cooldown = R2_SKILL_TABLE[enemy_class]["cd_min"]
+		_skill_r2_cooldown = _r2_cd_min()
 
 	hurtbox.health_component = health
 	hurtbox.team = team
@@ -287,6 +325,13 @@ func _ready() -> void:
 	hitbox.element = element
 	hurtbox.element = element
 	hitbox.set_active(false)
+
+	# StatusEffectComponent: hijo runtime, sin tocar enemy.tscn / boss_*.tscn.
+	status_effects = StatusEffectComponent.new()
+	status_effects.name = "StatusEffects"
+	add_child(status_effects)
+	status_effects.effect_ticked.connect(_on_status_ticked)
+	status_effects.effect_applied.connect(_on_status_applied)
 
 	health.died.connect(_on_died)
 	health.damaged.connect(_on_damaged)
@@ -398,6 +443,8 @@ func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
 	if DEBUG_ENABLED and state == State.CHASE:
 		_dbg_tick_ceiling()
+	# Tick del buff Arma Imbuida — independiente del state actual.
+	_tick_arma_imbuida_buff(delta)
 	_tick_state(delta)
 	move_and_slide()
 
@@ -409,6 +456,15 @@ func _apply_gravity(delta: float) -> void:
 
 func _tick_state(delta: float) -> void:
 	_state_timer += delta
+
+	# STUN: ignora state machine — solo decae velocity y mantiene IDLE visual.
+	# Habilita interrupciones cortas (Golpe de Escudo Tank, Rugido de Guerra, etc.).
+	# Cap canónico 0.3s en .tres para no frustrar al jugador. Ver habilidades_generales.md §3 ⛔.
+	if status_effects != null and status_effects.has(&"stun"):
+		velocity.x = move_toward(velocity.x, 0.0, speed * 4.0 * delta)
+		if state != State.DEAD and state != State.HURT:
+			sprite.set_state(StickFigure.State.IDLE)
+		return
 
 	match state:
 		State.IDLE:
@@ -498,8 +554,13 @@ func _tick_state(delta: float) -> void:
 
 			# En aire usa JUMP_HORIZONTAL_SPEED (fijo) — el tank salta tan lejos como melee.
 			# En piso usa speed (varía por clase: tank 260, melee 400, etc.).
+			# SLOW + FREEZE: multiplicadores externos aplicados por skills/proyectiles del jugador.
+			var slow_mult: float = 1.0
+			if status_effects != null:
+				slow_mult = status_effects.get_magnitude(&"slow", 1.0) \
+					* status_effects.get_magnitude(&"freeze", 1.0)
 			var speed_now: float = speed if is_on_floor() else JUMP_HORIZONTAL_SPEED * _air_speed_factor
-			velocity.x = current_facing * speed_now
+			velocity.x = current_facing * speed_now * slow_mult
 			sprite.set_state(StickFigure.State.JUMP if not is_on_floor() else StickFigure.State.WALK)
 			_try_reactive_jump()
 
@@ -588,18 +649,13 @@ func _tick_state(delta: float) -> void:
 					_skill_r3_buff_cooldown = R3_BUFF_COOLDOWN
 					_change_state(State.RECOVERY)
 				return
-			# Skill normal R3 (proyectil potenciado para ranged, hitbox ampliada para melee).
-			if _is_ranged():
-				if _state_timer >= ATTACK_ACTIVE_START and not _skill_fired_this_cast:
-					_spawn_skill_projectile()
-					_skill_fired_this_cast = true
-			else:
-				# Melee: hitbox activo más tiempo que ataque normal (ventana más peligrosa).
-				var should_active: bool = _state_timer >= ATTACK_ACTIVE_START \
-					and _state_timer <= ATTACK_ACTIVE_END * 2.0
-				if hitbox.monitoring != should_active:
-					hitbox.set_active(should_active)
-			if _state_timer >= SKILL_ATTACK_DURATION:
+			# R3 dispatch por clase (Lluvia de Flechas / Meteoros / Muralla Estática / hitbox melee).
+			_r3_tick_skill_attack_by_class()
+			# Cierre del skill: dura más para Archer/Mage (Lluvia 0.85s) que para Melee/Tank (0.3s).
+			var skill_dur: float = R3_LLUVIA_DURATION if _is_ranged() else SKILL_ATTACK_DURATION
+			if enemy_class == GameConfig.EnemyClass.TANK:
+				skill_dur = R3_MURALLA_DURATION
+			if _state_timer >= skill_dur:
 				hitbox.set_active(false)
 				_skill_fired_this_cast = false
 				_skill_cooldown = randf_range(SKILL_COOLDOWN_MIN, SKILL_COOLDOWN_MAX)
@@ -608,9 +664,7 @@ func _tick_state(delta: float) -> void:
 		# ── R2 Skill: telegrafía ──────────────────────────────────────────────
 		State.R2_SKILL_TELEGRAPH:
 			velocity.x = 0.0
-			var r2_data: Dictionary = R2_SKILL_TABLE.get(enemy_class, {})
-			var r2_tele: float = r2_data.get("telegraph_sec", 0.6)
-			if _state_timer >= r2_tele:
+			if _state_timer >= _r2_telegraph_sec():
 				_change_state(State.R2_SKILL_ATTACK)
 
 		# ── R2 Skill: ejecución ───────────────────────────────────────────────
@@ -683,9 +737,16 @@ func _change_state(new_state: State) -> void:
 				_spawn_sed_de_sangre_telegraph_vfx()
 
 		State.SKILL_ATTACK:
-			# R3: daño aumentado para el skill — temporalmente sobreescribimos el hitbox.
+			# Daño aumentado base — para clases que usan hitbox/proyectil directo (legacy).
 			hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
 				* SKILL_DAMAGE_MULT))
+			# Reset flags por-cast.
+			_r3_drop_telegraphs_spawned = false
+			_r3_drop_damage_applied = false
+			_r3_drop_positions.clear()
+			# Setup per-clase (Archer/Mage spawn de telegraphs, Tank aplica status).
+			if not _r3_buff_casting:
+				_r3_enter_skill_attack_by_class()
 
 		State.RECOVERY:
 			# Restaurar daño normal si salimos de un skill attack R3 o R2 melee.
@@ -694,10 +755,8 @@ func _change_state(new_state: State) -> void:
 
 		# ── R2 Skill: enter ───────────────────────────────────────────────────
 		State.R2_SKILL_TELEGRAPH:
-			# Telegrafía visible con duración según la tabla de la clase.
-			var r2_data: Dictionary = R2_SKILL_TABLE.get(enemy_class, {})
-			var r2_tele: float = r2_data.get("telegraph_sec", 0.6)
-			sprite.start_telegraph(r2_tele)
+			# Telegrafía visible con duración del EnemySkillData (.tres > fallback).
+			sprite.start_telegraph(_r2_telegraph_sec())
 			_face_target()
 			# VFX: partícula de "carga" específica por clase.
 			_spawn_r2_telegraph_vfx()
@@ -1276,6 +1335,7 @@ func _spawn_projectile() -> void:
 	var direction: Vector2 = (aim_point - proj.global_position).normalized()
 	# Elemento del enemy propagado al proyectil para el modifier elemental. GDD §5.3.
 	proj.launch(direction, hitbox.damage, team, element)
+	proj.set_source(self)
 
 	# ── Mage R1+: Orbe Flamígero — AoE radial post-impacto ──────────────────
 	# Regla R1→R2→R3: la mejora del ataque básico se hereda a rarezas superiores.
@@ -1332,10 +1392,169 @@ func _spawn_r3_idle_aura() -> void:
 	add_child(aura)
 
 
-## Proyectil potenciado del skill especial R3.
-## Para no crear nueva escena, reutilizamos projectile_scene si existe,
-## o disparamos el hitbox potenciado si es melee (ya manejado en SKILL_ATTACK state).
-## Esta función solo es relevante para clases ranged (Archer/Mage).
+# ─── R3 Skills nuevas: Lluvia / Muralla / Meteoros ───────────────────────────
+
+## Setup en enter SKILL_ATTACK. Determina posiciones de drop o aplica status.
+func _r3_enter_skill_attack_by_class() -> void:
+	if _target == null:
+		return
+	match enemy_class:
+		GameConfig.EnemyClass.ARCHER:
+			_r3_setup_lluvia_positions(70.0)  # 3 flechas con spread 70px
+			_r3_spawn_aoe_telegraphs(Color(1.0, 0.85, 0.2, 0.55))
+		GameConfig.EnemyClass.MAGE:
+			_r3_setup_lluvia_positions(80.0)  # 3 meteoros con spread 80px
+			_r3_spawn_aoe_telegraphs(Color(1.0, 0.3, 0.1, 0.55))
+		GameConfig.EnemyClass.TANK:
+			_r3_apply_muralla_estatica()
+
+
+## Tick: para Archer/Mage aplica damage tras telegraph; Tank no necesita tick.
+func _r3_tick_skill_attack_by_class() -> void:
+	match enemy_class:
+		GameConfig.EnemyClass.ARCHER:
+			if _state_timer >= R3_LLUVIA_DROP_TIME and not _r3_drop_damage_applied:
+				_r3_drop_damage_applied = true
+				_r3_apply_lluvia_damage(false)  # sin BURN — daño directo
+		GameConfig.EnemyClass.MAGE:
+			if _state_timer >= R3_LLUVIA_DROP_TIME and not _r3_drop_damage_applied:
+				_r3_drop_damage_applied = true
+				_r3_apply_lluvia_damage(true)   # con BURN
+		GameConfig.EnemyClass.MELEE:
+			# Legacy: hitbox extended (no debería usarse — Melee R3 = Sed de Sangre).
+			var should_active: bool = _state_timer >= ATTACK_ACTIVE_START \
+				and _state_timer <= ATTACK_ACTIVE_END * 2.0
+			if hitbox.monitoring != should_active:
+				hitbox.set_active(should_active)
+
+
+## Calcula 3 posiciones X bajo el target para drop de proyectiles (Lluvia).
+func _r3_setup_lluvia_positions(spread: float) -> void:
+	var center: Vector2 = _target.global_position
+	# Y de impacto: piso del target (asumiendo target apoyado, ajustamos al cuerpo).
+	var y_impact: float = center.y + 20.0
+	_r3_drop_positions = [
+		Vector2(center.x - spread, y_impact),
+		Vector2(center.x, y_impact),
+		Vector2(center.x + spread, y_impact),
+	]
+
+
+## Instancia 3 AoeTelegraph en las posiciones guardadas.
+func _r3_spawn_aoe_telegraphs(color: Color) -> void:
+	var scene: PackedScene = load("res://scenes/effects/aoe_telegraph.tscn") as PackedScene
+	if scene == null:
+		return
+	for pos: Vector2 in _r3_drop_positions:
+		var tele: AoeTelegraph = scene.instantiate() as AoeTelegraph
+		if tele == null:
+			continue
+		tele.global_position = pos
+		tele.setup(R3_LLUVIA_RADIUS, R3_LLUVIA_DROP_TIME + 0.1, color)
+		get_tree().current_scene.add_child(tele)
+	_r3_drop_telegraphs_spawned = true
+
+
+## Aplica damage radial en cada posición de drop. Si apply_burn, además aplica BURN.
+func _r3_apply_lluvia_damage(apply_burn: bool) -> void:
+	var dmg: int = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+		* SKILL_DAMAGE_MULT))
+	var space_state: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	if space_state == null:
+		return
+	var burn_data: StatusEffectData = null
+	if apply_burn:
+		burn_data = load("res://resources/status_effects/burn.tres") as StatusEffectData
+	for pos: Vector2 in _r3_drop_positions:
+		var query: PhysicsShapeQueryParameters2D = PhysicsShapeQueryParameters2D.new()
+		var circle: CircleShape2D = CircleShape2D.new()
+		circle.radius = R3_LLUVIA_RADIUS
+		query.shape = circle
+		query.transform = Transform2D(0.0, pos)
+		query.collision_mask = 0b10000  # bit 5 Hurtbox
+		query.collide_with_areas = true
+		query.collide_with_bodies = false
+		var hits: Array[Dictionary] = space_state.intersect_shape(query, 8)
+		for hit: Dictionary in hits:
+			var collider: Object = hit.get("collider")
+			if collider is HurtboxComponent:
+				var hb: HurtboxComponent = collider
+				if hb.team == team:
+					continue
+				hb.receive_hit(dmg, null, 0)
+				if burn_data != null:
+					var defender: Node = hb.get_parent()
+					var se: StatusEffectComponent = defender.get_node_or_null("StatusEffects") as StatusEffectComponent
+					if se != null:
+						se.apply(burn_data, self)
+
+
+## Tank R3: aplica status muralla_estatica durante R3_MURALLA_DURATION + aura azul.
+func _r3_apply_muralla_estatica() -> void:
+	if status_effects == null:
+		return
+	var data: StatusEffectData = load("res://resources/status_effects/muralla_estatica.tres") as StatusEffectData
+	if data == null:
+		# Fallback: si no existe la .tres, crear runtime.
+		data = StatusEffectData.new()
+		data.id = &"muralla_estatica"
+		data.duration = R3_MURALLA_DURATION
+		data.magnitude = 1.0
+		data.stack_mode = StatusEffectData.StackMode.REFRESH
+		data.display_name = "Muralla Estática"
+	status_effects.apply(data, self, NAN, R3_MURALLA_DURATION)
+	_spawn_muralla_aura()
+
+
+## VFX aura azul defensiva durante Muralla Estática. Persiste hasta expirar status.
+func _spawn_muralla_aura() -> void:
+	var old: Node = get_node_or_null("MurallaAura")
+	if old != null:
+		old.queue_free()
+	var aura: GPUParticles2D = GPUParticles2D.new()
+	aura.name = "MurallaAura"
+	aura.position = Vector2(0, -40)
+	aura.amount = 5
+	aura.lifetime = 0.6
+	aura.preprocess = 0.2
+	aura.explosiveness = 0.0
+	aura.z_index = -1
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 28.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 90.0
+	mat.initial_velocity_min = 10.0
+	mat.initial_velocity_max = 25.0
+	mat.scale_min = 1.0
+	mat.scale_max = 1.6
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(0.4, 0.85, 1.0, 0.9))
+	grad.set_color(1, Color(0.2, 0.5, 1.0, 0.0))
+	var grad_tex: GradientTexture1D = GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+	aura.process_material = mat
+	aura.emitting = true
+	add_child(aura)
+	# Auto-destroy tras la duración de la skill.
+	var t: Timer = Timer.new()
+	t.wait_time = R3_MURALLA_DURATION + 0.2
+	t.one_shot = true
+	t.timeout.connect(func() -> void:
+		if aura != null and is_instance_valid(aura):
+			aura.queue_free()
+		t.queue_free())
+	add_child(t)
+	t.start()
+
+
+# ─── Fin R3 Skills nuevas ────────────────────────────────────────────────────
+
+
+## Proyectil potenciado del skill especial R3. **DEPRECATED** — Lluvia de Flechas /
+## Meteoros lo reemplazan vía `_r3_apply_lluvia_damage`. Mantenido por si algún
+## boss legacy lo invoca. Eliminar cuando se confirme que no se usa.
 func _spawn_skill_projectile() -> void:
 	if projectile_scene == null:
 		push_warning("Enemy R3 sin projectile_scene — skill no puede disparar proyectil.")
@@ -1353,6 +1572,7 @@ func _spawn_skill_projectile() -> void:
 	# Daño ya fue seteado en SKILL_ATTACK enter via hitbox.damage — usar ese valor.
 	# Elemento del enemy propagado al proyectil. GDD §5.3.
 	proj.launch(direction, hitbox.damage, team, element)
+	proj.set_source(self)
 	get_tree().current_scene.add_child(proj)
 
 
@@ -1375,6 +1595,43 @@ func _on_block_absorbed(_amount: int, _source: HitboxComponent) -> void:
 # ══════════════════════════════════════════════════════════════════════════════
 # ─── R2 Skill: métodos de implementación ─────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
+
+## ── Accesores de EnemySkillData con fallback a R2_SKILL_TABLE const ─────────
+## Mantienen la migración graceful: si `_r2_skill_data` es null o tiene un campo
+## en 0.0 (caso edge), se cae al dict const. Eliminar el fallback cuando todos
+## los enemies tengan .tres canónica.
+
+func _r2_telegraph_sec() -> float:
+	if _r2_skill_data != null and _r2_skill_data.telegraph_sec > 0.0:
+		return _r2_skill_data.telegraph_sec
+	return R2_SKILL_TABLE.get(enemy_class, {}).get("telegraph_sec", 0.6)
+
+
+func _r2_cd_min() -> float:
+	if _r2_skill_data != null and _r2_skill_data.cd_min > 0.0:
+		return _r2_skill_data.cd_min
+	return R2_SKILL_TABLE.get(enemy_class, {}).get("cd_min", 7.0)
+
+
+func _r2_cd_max() -> float:
+	if _r2_skill_data != null and _r2_skill_data.cd_max > 0.0:
+		return _r2_skill_data.cd_max
+	return R2_SKILL_TABLE.get(enemy_class, {}).get("cd_max", 9.0)
+
+
+func _r2_attack_duration() -> float:
+	if _r2_skill_data != null and _r2_skill_data.attack_duration > 0.0:
+		return _r2_skill_data.attack_duration
+	return R2_SKILL_TABLE.get(enemy_class, {}).get("attack_duration", 0.3)
+
+
+## Lee param del .tres con default fallback. Usar para dash_distance, taunt_radius, etc.
+## Key como String (la .tres guarda dict con keys String, no StringName).
+func _r2_param(key: String, default: float) -> float:
+	if _r2_skill_data == null:
+		return default
+	return float(_r2_skill_data.params.get(key, default))
+
 
 ## VFX de telegrafía R2. Partícula de "carga" visual diferente por clase.
 ## Dura mientras el enemy está en R2_SKILL_TELEGRAPH (se limpia con queue_free
@@ -1444,6 +1701,40 @@ func _enter_r2_skill_attack() -> void:
 	if vfx != null:
 		vfx.queue_free()
 
+	# Dispatch por id de skill (pool §4 variants). Default fallback al match por clase.
+	if _r2_skill_data != null:
+		match _r2_skill_data.id:
+			&"r2_melee_giratorio":
+				_enter_r2_giratorio()
+				return
+			&"r2_melee_tajo_doble":
+				_enter_r2_tajo_doble()
+				return
+			&"r2_melee_patada":
+				_enter_r2_patada()
+				return
+			&"r2_melee_salto_asalto":
+				_enter_r2_salto_asalto()
+				return
+			&"r2_mage_nova_hielo":
+				_enter_r2_nova_hielo()
+				return
+			&"r2_mage_erupcion_terrestre":
+				_enter_r2_erupcion_terrestre()
+				return
+			&"r2_archer_disparo_reactivo":
+				_enter_r2_disparo_reactivo()
+				return
+			&"r2_mage_rafaga_arcana":
+				_enter_r2_rafaga_arcana()
+				return
+			&"r2_tank_gancho_ascendente":
+				_enter_r2_gancho_ascendente()
+				return
+			&"r2_melee_arma_imbuida":
+				_enter_r2_arma_imbuida()
+				return
+
 	match enemy_class:
 		GameConfig.EnemyClass.MELEE:
 			# ── R2 Skill MELEE: Embestida-dash ────────────────────────────────
@@ -1473,9 +1764,42 @@ func _enter_r2_skill_attack() -> void:
 
 ## Tick del estado R2_SKILL_ATTACK. Comportamiento por clase.
 func _tick_r2_skill_attack() -> void:
-	var r2_data: Dictionary = R2_SKILL_TABLE.get(enemy_class, {})
-	var r2_duration: float = r2_data.get("attack_duration", 0.3)
+	var r2_duration: float = _r2_attack_duration()
 	sprite.set_state(StickFigure.State.ATTACK)
+
+	# Dispatch por id de skill (pool §4 variants).
+	if _r2_skill_data != null:
+		match _r2_skill_data.id:
+			&"r2_melee_giratorio":
+				_tick_r2_giratorio(r2_duration)
+				return
+			&"r2_melee_tajo_doble":
+				_tick_r2_tajo_doble(r2_duration)
+				return
+			&"r2_melee_patada":
+				_tick_r2_patada(r2_duration)
+				return
+			&"r2_melee_salto_asalto":
+				_tick_r2_salto_asalto(r2_duration)
+				return
+			&"r2_mage_nova_hielo":
+				_tick_r2_nova_hielo(r2_duration)
+				return
+			&"r2_mage_erupcion_terrestre":
+				_tick_r2_erupcion_terrestre(r2_duration)
+				return
+			&"r2_archer_disparo_reactivo":
+				_tick_r2_disparo_reactivo(r2_duration)
+				return
+			&"r2_mage_rafaga_arcana":
+				_tick_r2_rafaga_arcana(r2_duration)
+				return
+			&"r2_tank_gancho_ascendente":
+				_tick_r2_gancho_ascendente(r2_duration)
+				return
+			&"r2_melee_arma_imbuida":
+				_tick_r2_arma_imbuida(r2_duration)
+				return
 
 	match enemy_class:
 		# ── R2 Skill MELEE: Embestida-dash ────────────────────────────────────
@@ -1523,12 +1847,387 @@ func _tick_r2_skill_attack() -> void:
 func _finish_r2_skill() -> void:
 	hitbox.set_active(false)
 	_skill_r2_fired = false
-	var r2_data: Dictionary = R2_SKILL_TABLE.get(enemy_class, {})
-	_skill_r2_cooldown = randf_range(r2_data.get("cd_min", 7.0), r2_data.get("cd_max", 9.0))
+	_skill_r2_cooldown = randf_range(_r2_cd_min(), _r2_cd_max())
 	# Restaurar daño normal si clase melee o mage lo modificó.
 	if enemy_class == GameConfig.EnemyClass.MELEE or enemy_class == GameConfig.EnemyClass.MAGE:
 		hitbox.damage = GameConfig.enemy_damage_with_rarity(enemy_class, rarity)
+	# Reset variables de skill variants (pool §4).
+	_r2_giratorio_tick_accum = 0.0
+	_r2_tajo_hit_count = 0
 	_change_state(State.RECOVERY)
+
+
+# ─── R2 Skill variants (pool §4 Set B/C) ────────────────────────────────────
+
+var _r2_giratorio_tick_accum: float = 0.0
+var _r2_tajo_hit_count: int = 0  # 0=pre-hit1, 1=post-hit1 gap, 2=post-hit2
+
+
+## Corte Giratorio (Guerrero R2 Set B): hitbox activo durante toda la duración,
+## avance lento hacia el player, damage por tick reducido (multi-hit acumulado).
+func _enter_r2_giratorio() -> void:
+	hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+		* _r2_skill_data.damage_mult))
+	hitbox.set_active(true)
+	_r2_giratorio_tick_accum = 0.0
+
+
+func _tick_r2_giratorio(r2_duration: float) -> void:
+	var move_speed: float = _r2_param("move_speed", 50.0)
+	if _target != null:
+		velocity.x = signf(_target.global_position.x - global_position.x) * move_speed
+	# Tick accumulator — Godot Area2D detecta colisión continua. Hitbox queda activo todo el spin.
+	_r2_giratorio_tick_accum += get_physics_process_delta_time()
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+## Tajo Doble (Guerrero R2 Set B): 2 hits secuenciales con gap. Hitbox toggle.
+func _enter_r2_tajo_doble() -> void:
+	hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+		* _r2_skill_data.damage_mult))
+	hitbox.set_active(true)  # hit 1 inmediato
+	_r2_tajo_hit_count = 1
+
+
+func _tick_r2_tajo_doble(r2_duration: float) -> void:
+	velocity.x = 0.0
+	var hit1_end: float = _r2_param("hit1_end", 0.15)
+	var hit2_start: float = _r2_param("hit2_start", 0.25)
+	var hit2_end: float = _r2_param("hit2_end", 0.40)
+	# Toggle hitbox según fase.
+	if _r2_tajo_hit_count == 1 and _state_timer >= hit1_end:
+		hitbox.set_active(false)
+		_r2_tajo_hit_count = 2  # esperar al gap
+	if _r2_tajo_hit_count == 2 and _state_timer >= hit2_start:
+		hitbox.set_active(true)  # hit 2
+		_r2_tajo_hit_count = 3
+	if _r2_tajo_hit_count == 3 and _state_timer >= hit2_end:
+		hitbox.set_active(false)
+		_r2_tajo_hit_count = 4
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+## Patada Frontal (Guerrero R2 Set C): hitbox rápido + knockback fuerte.
+func _enter_r2_patada() -> void:
+	hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+		* _r2_skill_data.damage_mult))
+	hitbox.set_active(true)
+
+
+func _tick_r2_patada(r2_duration: float) -> void:
+	velocity.x = 0.0
+	var hb_active: float = _r2_param("hitbox_active", 0.12)
+	# Aplicar knockback en el primer frame.
+	if not _skill_r2_fired and _state_timer >= 0.0:
+		_apply_patada_knockback()
+		_skill_r2_fired = true
+	if _state_timer >= hb_active:
+		hitbox.set_active(false)
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+func _apply_patada_knockback() -> void:
+	if _target == null or not _target.has_method("apply_external_velocity"):
+		return
+	# Solo aplica si el target está dentro de rango melee aproximado.
+	var dist: float = global_position.distance_to(_target.global_position)
+	if dist > attack_range * 1.2:
+		return
+	var kb_x: float = _r2_param("knockback_x", 120.0)
+	var kb_y: float = _r2_param("knockback_y", -120.0)
+	var dir: int = current_facing
+	_target.apply_external_velocity(Vector2(float(dir) * kb_x, kb_y))
+
+
+# ─── Salto Asalto + Nova Hielo + Erupción Terrestre ────────────────────────
+
+var _r2_salto_landing_pos: Vector2 = Vector2.ZERO
+var _r2_salto_landed: bool = false
+var _r2_aoe_pos: Vector2 = Vector2.ZERO
+var _r2_aoe_fired: bool = false
+
+
+## Salto de Asalto (Guerrero R2 Set A): AoeTelegraph + jump + landing damage.
+func _enter_r2_salto_asalto() -> void:
+	if _target == null:
+		return
+	_r2_salto_landing_pos = _target.global_position + Vector2(0, 0)
+	_r2_salto_landed = false
+	# Telegraph en suelo bajo player.
+	_r2_spawn_aoe_telegraph(_r2_salto_landing_pos, _r2_param("landing_radius", 75.0), \
+		_r2_param("air_time", 0.7) + 0.1, Color(1.0, 0.5, 0.1, 0.5))
+	# Jump arc: vy negativa + vx toward target.
+	velocity.y = _r2_param("jump_vy", -900.0)
+	var dx: float = _r2_salto_landing_pos.x - global_position.x
+	velocity.x = dx / _r2_param("air_time", 0.7)
+
+
+func _tick_r2_salto_asalto(r2_duration: float) -> void:
+	var air_time: float = _r2_param("air_time", 0.7)
+	# Continuar movimiento horizontal hasta landing.
+	if not _r2_salto_landed and (_state_timer >= air_time or is_on_floor() and _state_timer > 0.2):
+		_r2_salto_landed = true
+		velocity.x = 0.0
+		# Aplicar landing damage radial.
+		var dmg: int = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+			* _r2_skill_data.damage_mult))
+		_r2_apply_radial_damage(global_position, _r2_param("landing_radius", 75.0), dmg)
+		# Knockback al player si cerca.
+		if _target != null and _target.has_method("apply_external_velocity") \
+				and global_position.distance_to(_target.global_position) < _r2_param("landing_radius", 75.0):
+			var kb_x: float = _r2_param("knockback_x", 60.0)
+			var kb_y: float = _r2_param("knockback_y", -100.0)
+			var kb_dir: int = -1 if _target.global_position.x < global_position.x else 1
+			_target.apply_external_velocity(Vector2(float(kb_dir) * kb_x, kb_y))
+		if CameraShake != null:
+			CameraShake.shake(0.15, 8.0)
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+## Nova de Hielo (Mage R2 Set A): AoeTelegraph fijo bajo player + AoE damage + FREEZE.
+func _enter_r2_nova_hielo() -> void:
+	if _target == null:
+		return
+	_r2_aoe_pos = _target.global_position + Vector2(0, 0)
+	_r2_aoe_fired = false
+	_r2_spawn_aoe_telegraph(_r2_aoe_pos, _r2_param("radius", 70.0), \
+		_r2_param("telegraph_time", 0.55) + 0.1, Color(0.4, 0.85, 1.0, 0.6))
+
+
+func _tick_r2_nova_hielo(r2_duration: float) -> void:
+	velocity.x = 0.0
+	var telegraph_time: float = _r2_param("telegraph_time", 0.55)
+	if not _r2_aoe_fired and _state_timer >= telegraph_time:
+		_r2_aoe_fired = true
+		var dmg: int = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+			* _r2_skill_data.damage_mult))
+		_r2_apply_radial_damage_with_status(_r2_aoe_pos, _r2_param("radius", 70.0), dmg, \
+			load("res://resources/status_effects/freeze.tres") as StatusEffectData)
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+## Erupción Terrestre (Mage R3 Set C): pilar vertical fijo + AoE damage + FRACTURA.
+func _enter_r2_erupcion_terrestre() -> void:
+	if _target == null:
+		return
+	_r2_aoe_pos = _target.global_position + Vector2(0, 0)
+	_r2_aoe_fired = false
+	_r2_spawn_aoe_telegraph(_r2_aoe_pos, _r2_param("radius", 50.0), \
+		_r2_param("telegraph_time", 0.5) + 0.1, Color(0.7, 0.55, 0.2, 0.6))
+
+
+func _tick_r2_erupcion_terrestre(r2_duration: float) -> void:
+	velocity.x = 0.0
+	var telegraph_time: float = _r2_param("telegraph_time", 0.5)
+	if not _r2_aoe_fired and _state_timer >= telegraph_time:
+		_r2_aoe_fired = true
+		var dmg: int = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+			* _r2_skill_data.damage_mult))
+		_r2_apply_radial_damage_with_status(_r2_aoe_pos, _r2_param("radius", 50.0), dmg, \
+			load("res://resources/status_effects/vulnerable.tres") as StatusEffectData)
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+# ─── Helpers compartidos R2 variants ─────────────────────────────────────────
+
+func _r2_spawn_aoe_telegraph(pos: Vector2, radius: float, duration: float, color: Color) -> void:
+	var scene: PackedScene = load("res://scenes/effects/aoe_telegraph.tscn") as PackedScene
+	if scene == null:
+		return
+	var tele: AoeTelegraph = scene.instantiate() as AoeTelegraph
+	if tele == null:
+		return
+	tele.global_position = pos
+	tele.setup(radius, duration, color)
+	get_tree().current_scene.add_child(tele)
+
+
+func _r2_apply_radial_damage(pos: Vector2, radius: float, damage: int) -> void:
+	var space_state: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	if space_state == null:
+		return
+	var query: PhysicsShapeQueryParameters2D = PhysicsShapeQueryParameters2D.new()
+	var circle: CircleShape2D = CircleShape2D.new()
+	circle.radius = radius
+	query.shape = circle
+	query.transform = Transform2D(0.0, pos)
+	query.collision_mask = 0b10000
+	query.collide_with_areas = true
+	var hits: Array[Dictionary] = space_state.intersect_shape(query, 16)
+	for hit: Dictionary in hits:
+		var collider: Object = hit.get("collider")
+		if collider is HurtboxComponent:
+			var hb: HurtboxComponent = collider
+			if hb.team == team:
+				continue
+			hb.receive_hit(damage, null, 0)
+
+
+func _r2_apply_radial_damage_with_status(pos: Vector2, radius: float, damage: int, \
+		status_data: StatusEffectData) -> void:
+	var space_state: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	if space_state == null:
+		return
+	var query: PhysicsShapeQueryParameters2D = PhysicsShapeQueryParameters2D.new()
+	var circle: CircleShape2D = CircleShape2D.new()
+	circle.radius = radius
+	query.shape = circle
+	query.transform = Transform2D(0.0, pos)
+	query.collision_mask = 0b10000
+	query.collide_with_areas = true
+	var hits: Array[Dictionary] = space_state.intersect_shape(query, 16)
+	for hit: Dictionary in hits:
+		var collider: Object = hit.get("collider")
+		if collider is HurtboxComponent:
+			var hb: HurtboxComponent = collider
+			if hb.team == team:
+				continue
+			hb.receive_hit(damage, null, 0)
+			if status_data != null:
+				var defender: Node = hb.get_parent()
+				if defender == null:
+					continue
+				var se: StatusEffectComponent = defender.get_node_or_null("StatusEffects") as StatusEffectComponent
+				if se != null:
+					se.apply(status_data, self)
+
+
+# ─── Batch 3: Disparo Reactivo, Ráfaga Arcana, Gancho Ascendente, Arma Imbuida ─
+
+var _r2_rafaga_shots_fired: int = 0
+var _r2_rafaga_next_shot_at: float = 0.0
+var _r2_arma_imbuida_timer: float = 0.0
+
+
+## Disparo Reactivo (Archer R2 Set C): 1 proyectil veloz, dmg reducido.
+func _enter_r2_disparo_reactivo() -> void:
+	pass
+
+
+func _tick_r2_disparo_reactivo(r2_duration: float) -> void:
+	velocity.x = 0.0
+	if not _skill_r2_fired and _state_timer >= ATTACK_ACTIVE_START:
+		_skill_r2_fired = true
+		_spawn_r2_disparo_reactivo_projectile()
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+func _spawn_r2_disparo_reactivo_projectile() -> void:
+	if projectile_scene == null or _target == null:
+		return
+	var proj: Projectile = projectile_scene.instantiate() as Projectile
+	if proj == null:
+		return
+	proj.global_position = global_position + Vector2(0, -30)
+	var aim: Vector2 = _target.global_position + Vector2(0, -30)
+	var dir: Vector2 = (aim - proj.global_position).normalized()
+	var dmg: int = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+		* _r2_skill_data.damage_mult))
+	proj.speed *= _r2_param("speed_mult", 2.0)
+	proj.scale = Vector2.ONE * _r2_param("projectile_scale", 0.8)
+	proj.launch(dir, dmg, team, element)
+	proj.set_source(self)
+	get_tree().current_scene.add_child(proj)
+
+
+## Ráfaga Arcana (Mage R2 Set C): 3 proyectiles secuenciales.
+func _enter_r2_rafaga_arcana() -> void:
+	_r2_rafaga_shots_fired = 0
+	_r2_rafaga_next_shot_at = ATTACK_ACTIVE_START
+
+
+func _tick_r2_rafaga_arcana(r2_duration: float) -> void:
+	velocity.x = 0.0
+	var shot_count: int = int(_r2_param("shot_count", 3))
+	var shot_interval: float = _r2_param("shot_interval", 0.12)
+	if _r2_rafaga_shots_fired < shot_count and _state_timer >= _r2_rafaga_next_shot_at:
+		_spawn_r2_rafaga_projectile()
+		_r2_rafaga_shots_fired += 1
+		_r2_rafaga_next_shot_at = _state_timer + shot_interval
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+func _spawn_r2_rafaga_projectile() -> void:
+	if projectile_scene == null or _target == null:
+		return
+	var proj: Projectile = projectile_scene.instantiate() as Projectile
+	if proj == null:
+		return
+	proj.global_position = global_position + Vector2(0, -45)
+	var aim: Vector2 = _target.global_position + Vector2(0, -30)
+	var dir: Vector2 = (aim - proj.global_position).normalized()
+	var dmg: int = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+		* _r2_skill_data.damage_mult))
+	proj.launch(dir, dmg, team, element)
+	proj.set_source(self)
+	get_tree().current_scene.add_child(proj)
+
+
+## Gancho Ascendente (Tank R2 Set C): hit + consume 2 cargas escudo player si bloquea.
+func _enter_r2_gancho_ascendente() -> void:
+	hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+		* _r2_skill_data.damage_mult))
+	hitbox.set_active(true)
+
+
+func _tick_r2_gancho_ascendente(r2_duration: float) -> void:
+	velocity.x = 0.0
+	var hb_active: float = _r2_param("hitbox_active", 0.18)
+	if not _skill_r2_fired and _state_timer >= 0.0:
+		_skill_r2_fired = true
+		_apply_gancho_charges_break()
+	if _state_timer >= hb_active:
+		hitbox.set_active(false)
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+func _apply_gancho_charges_break() -> void:
+	if _target == null:
+		return
+	var dist: float = global_position.distance_to(_target.global_position)
+	if dist > attack_range * 1.5:
+		return
+	var shield: Node = _target.get_node_or_null("ShieldComponent")
+	if shield == null or not shield.has_method("consume_charge_force"):
+		return
+	var n: int = int(_r2_param("charges_break", 2))
+	shield.consume_charge_force(n)
+
+
+## Arma Imbuida (Melee R2 Set C): buff propio 5s. Ataques básicos ignoran escudo.
+func _enter_r2_arma_imbuida() -> void:
+	_r2_arma_imbuida_timer = _r2_param("buff_duration", 5.0)
+	hitbox.ignore_shield = true
+	if sprite != null:
+		sprite.modulate = Color(1.3, 0.85, 0.4, 1.0)
+
+
+func _tick_r2_arma_imbuida(r2_duration: float) -> void:
+	velocity.x = 0.0
+	if _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+## Hook llamado desde _physics_process del padre para mantener el timer del buff
+## activo durante toda la duración (no solo el state R2_SKILL_ATTACK).
+func _tick_arma_imbuida_buff(delta: float) -> void:
+	if _r2_arma_imbuida_timer <= 0.0:
+		return
+	_r2_arma_imbuida_timer -= delta
+	if _r2_arma_imbuida_timer <= 0.0:
+		_r2_arma_imbuida_timer = 0.0
+		hitbox.ignore_shield = false
+		if sprite != null:
+			sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
 
 
 ## ── R2 Skill ARCHER: 3 flechas en spread vertical ±15° ──────────────────────
@@ -1550,6 +2249,7 @@ func _spawn_r2_archer_burst() -> void:
 		# Para spread vertical: desplazar la Y del target según el ángulo.
 		var spread_dir: Vector2 = base_dir.rotated(deg_to_rad(angle_deg))
 		proj.launch(spread_dir, hitbox.damage, team, element)
+		proj.set_source(self)
 		get_tree().current_scene.add_child(proj)
 
 
@@ -1569,6 +2269,7 @@ func _spawn_r2_mage_fireball() -> void:
 	proj.scale = Vector2(1.8, 1.8)
 	# Daño ya fue aumentado en enter (SKILL_DAMAGE_MULT).
 	proj.launch(direction, hitbox.damage, team, element)
+	proj.set_source(self)
 	get_tree().current_scene.add_child(proj)
 
 
@@ -1945,6 +2646,42 @@ func _spawn_sed_de_sangre_buff_aura() -> void:
 	add_child(aura)
 
 # ─── Fin R3 Guerrero: Sed de Sangre ──────────────────────────────────────────
+
+
+# ─── StatusEffectComponent handlers ──────────────────────────────────────────
+
+## DOT tick handler (BURN, MIASMA). Magnitud = daño por tick.
+## El daño NO va por hitbox elemental — es daño directo del status (bypass armor — Miasma spec).
+func _on_status_ticked(id: StringName, magnitude: float, _source: Node) -> void:
+	match id:
+		&"burn", &"miasma":
+			var dmg: int = int(round(magnitude))
+			if dmg > 0 and health != null:
+				health.take_damage(dmg)
+
+
+## DESEQUILIBRIO handler (VIENTO synergy): interrumpe el ataque actual + CD penalty.
+## Si el enemy estaba en TELEGRAPH/ATTACK/SKILL_*, cancela y vuelve a RECOVERY.
+## Magnitud (segundos) se suma a todos los cooldowns activos.
+func _on_status_applied(id: StringName, magnitude: float, _source: Node) -> void:
+	if id != &"desequilibrio":
+		return
+	# Cancelar ataque en curso si el state lo amerita.
+	var attacking_states: Array[int] = [
+		State.TELEGRAPH, State.ATTACK,
+		State.SKILL_TELEGRAPH, State.SKILL_ATTACK,
+		State.R2_SKILL_TELEGRAPH, State.R2_SKILL_ATTACK,
+	]
+	if state in attacking_states:
+		hitbox.set_active(false)
+		_change_state(State.RECOVERY)
+	# Penalty a todos los CDs.
+	var penalty: float = magnitude
+	_skill_cooldown = max(_skill_cooldown, 0.0) + penalty
+	_skill_r2_cooldown = max(_skill_r2_cooldown, 0.0) + penalty
+	_block_cooldown = max(_block_cooldown, 0.0) + penalty
+	_dodge_cooldown = max(_dodge_cooldown, 0.0) + penalty
+
 
 func _dbg(tag: String, msg: String) -> void:
 	# Helper de print con tag consistente. Solo se llama desde DEBUG_ENABLED branches.

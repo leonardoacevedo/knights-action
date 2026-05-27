@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="PlayerSkillData" format=3 uid="uid://player_skill_sombra"]
+
+[ext_resource type="Script" path="res://scripts/data/player_skill_data.gd" id="1_pskill"]
+
+[resource]
+script = ExtResource("1_pskill")
+id = &"sombra"
+display_name = "Sombra"
+description = "Invisibilidad 2s. El próximo golpe garantiza ventaja elemental (reutiliza Sombra del Valle)."
+cost_furia = 70
+cooldown = 25.0
+effect_type = 7
+params = {
+"duration": 2.0,
+}
+color = Color(0.6, 0.3, 1.0, 1)

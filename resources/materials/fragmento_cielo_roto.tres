@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3 uid="uid://mat_fragmento_cielo_roto"]
+
+[ext_resource type="Script" path="res://scripts/data/material_data.gd" id="1_matdata"]
+
+[resource]
+script = ExtResource("1_matdata")
+id = &"fragmento_cielo_roto"
+display_name = "Fragmento de Cielo Roto"
+description = "Trozo de la dimensión espejo. Resuena con un trueno lejano cuando se acerca a metal."
+rarity = 1
+max_stack = 99

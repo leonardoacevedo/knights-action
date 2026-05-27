@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="StageData" load_steps=6 format=3 uid="uid://stg_zona3_e6"]
+
+[ext_resource type="Script" path="res://scripts/data/stage_data.gd" id="1_stage"]
+[ext_resource type="Script" path="res://scripts/data/enemy_spawn_entry.gd" id="2_entry"]
+[ext_resource type="Resource" path="res://resources/stages/drop_tables/zona3_materials.tres" id="3_drops"]
+[ext_resource type="Resource" path="res://resources/enemies/drop_tables/enemy_r3_materials.tres" id="6_dr3"]
+
+[sub_resource type="Resource" id="Entry_z3e6_mage_r3"]
+script = ExtResource("2_entry")
+enemy_class = 3
+rarity = 2
+count = 1
+element = 2
+material_drops = ExtResource("6_dr3")
+
+[sub_resource type="Resource" id="Entry_z3e6_archer_r2"]
+script = ExtResource("2_entry")
+enemy_class = 2
+rarity = 1
+count = 3
+element = 2
+material_drops = ExtResource("6_dr3")
+
+[resource]
+script = ExtResource("1_stage")
+stage_index = 6
+display_name = "Sacerdote de Mareas"
+subtitle = "Un Mago R3 denega el suelo con erupciones de hielo. Cada paso cuenta."
+spawns = Array[ExtResource("2_entry")]([SubResource("Entry_z3e6_mage_r3"), SubResource("Entry_z3e6_archer_r2")])
+is_boss = false
+ambient_tint = Color(0.45, 0.70, 1.30, 1.0)
+material_drops = ExtResource("3_drops")

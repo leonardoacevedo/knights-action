@@ -1,0 +1,41 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/entities/boss_lyss.gd" id="2_boss"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/projectile_fireball.tscn" id="3_proj"]
+
+; Lyss — hitboxes proporcionales al sprite scale ~1.56x (rarity_scale R4 1.45 * 1.08).
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lyss_body"]
+size = Vector2(28, 100)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lyss_hit"]
+size = Vector2(62, 44)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lyss_hurt"]
+size = Vector2(38, 110)
+
+[node name="BossLyss" instance=ExtResource("1_base")]
+script = ExtResource("2_boss")
+enemy_class = 3
+rarity = 3
+element = 2
+projectile_scene = ExtResource("3_proj")
+
+[node name="BodyShape" parent="." index="0"]
+position = Vector2(0, -50)
+shape = SubResource("RectangleShape2D_lyss_body")
+
+[node name="StickFigure" parent="." index="1"]
+body_color = Color(0.55, 0.80, 1.0, 1.0)
+weapon_scale = 1.5
+
+[node name="Hitbox" parent="." index="3"]
+position = Vector2(40, -48)
+
+[node name="HitboxShape" parent="Hitbox" index="0"]
+shape = SubResource("RectangleShape2D_lyss_hit")
+
+[node name="HurtboxShape" parent="Hurtbox" index="0"]
+position = Vector2(0, -55)
+shape = SubResource("RectangleShape2D_lyss_hurt")

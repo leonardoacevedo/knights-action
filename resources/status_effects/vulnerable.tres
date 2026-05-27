@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://status_vulnerable"]
+
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+id = &"fractura"
+duration = 5.0
+magnitude = 0.20
+tick_interval = 0.0
+stack_mode = 0
+magnitude_policy = 0
+display_name = "Fractura"
+color = Color(1, 0.6, 0.4, 1)

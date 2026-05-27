@@ -29,6 +29,12 @@ var tierra_3pc_active: bool = false
 ## Seteado por PlayerStatsComponent.recalculate() vía BLOCK_CHARGES.
 var skill_charges_bonus: int = 0
 
+## Cargas temporales otorgadas por la skill activa "Escudo Mágico" (player_skill_system).
+## Se suman al `max_charges` mientras el timer corra; al expirar se descuentan junto con
+## el current_charges (clampeado al máximo original). Stack: SUM si reapply antes de expirar.
+var _temp_charges: int = 0
+var _temp_charges_timer: float = 0.0
+
 
 func _ready() -> void:
 	# Sincronizar con el escudo ya equipado al arrancar (deferred porque
@@ -101,6 +107,54 @@ func restore_all() -> void:
 	if max_charges <= 0:
 		return
 	current_charges = max_charges
+	charges_changed.emit(current_charges, max_charges)
+
+
+## Consume N cargas forzadamente (pool §4 Tank R2 "Gancho Ascendente" — rompe 2 cargas).
+## A diferencia de try_absorb, no requiere is_blocking. Útil para skills que penalizan
+## bloqueo activo destruyendo cargas inmediatamente. Clamp en 0.
+func consume_charge_force(n: int) -> void:
+	if n <= 0 or current_charges <= 0:
+		return
+	current_charges = max(0, current_charges - n)
+	charges_changed.emit(current_charges, max_charges)
+	charge_absorbed.emit(current_charges)
+	if current_charges <= 0 and is_blocking:
+		is_blocking = false
+		block_ended.emit()
+
+
+## API para PlayerSkillSystem (Escudo Mágico): +N cargas temporales durante `duration`.
+## Si ya hay cargas temp activas, stackean (SUM) y el timer toma la duration mayor.
+func add_temporary_charges(amount: int, duration: float) -> void:
+	if amount <= 0 or duration <= 0.0:
+		return
+	_temp_charges += amount
+	_temp_charges_timer = max(_temp_charges_timer, duration)
+	max_charges += amount
+	current_charges += amount
+	charges_changed.emit(current_charges, max_charges)
+
+
+func _process(delta: float) -> void:
+	if _temp_charges <= 0:
+		return
+	_temp_charges_timer -= delta
+	if _temp_charges_timer <= 0.0:
+		_expire_temp_charges()
+
+
+func _expire_temp_charges() -> void:
+	if _temp_charges <= 0:
+		return
+	var n: int = _temp_charges
+	_temp_charges = 0
+	_temp_charges_timer = 0.0
+	max_charges = max(0, max_charges - n)
+	current_charges = min(current_charges, max_charges)
+	if is_blocking and current_charges <= 0:
+		is_blocking = false
+		block_ended.emit()
 	charges_changed.emit(current_charges, max_charges)
 
 

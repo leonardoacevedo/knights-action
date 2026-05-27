@@ -29,7 +29,7 @@ enum Stat {
 	ELEMENTAL_ADV_MULT,   # Bonus sobre multiplicador de ventaja elemental (×1.5 base → puede ser mayor).
 	EVADE_PCT,            # Chance de esquivar daño físico. RNG en HurtboxComponent.receive_hit.
 	# Stat de buff temporal — NO se aplica permanente en hitbox.damage por PlayerStatsComponent.
-	# player.gd lo lee directo en _on_dash_ended para setear _post_dash_damage_mult.
+	# player.gd lo lee en _on_dash_ended y aplica como StatusEffect &"post_dash_damage".
 	POST_DASH_DAMAGE_PCT, # +daño físico del primer golpe dentro de 0.5s post-dash (skill agil_golpe_tras_dash).
 }
 

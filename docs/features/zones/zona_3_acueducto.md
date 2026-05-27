@@ -43,7 +43,7 @@ Clérigos corruptos. Su objetivo es denegar grandes porciones del suelo.
 
 Arena dividida: plataformas de hielo pequeñas sobre agua profunda. Caer al agua reduce la velocidad de movimiento un 40% hasta volver a saltar.
 * **Mecánicas Activas:**
-  * Usa **Látigo de Relámpago** (Rango medio, hitbox rectangular muy preciso y rápido).
+  * Usa **Látigo Helado** (Rango medio, hitbox rectangular muy preciso y rápido).
   * Usa **Muralla Estática** (Refleja ataques a distancia/magia del jugador).
   * Usa **Vórtice de Gravedad** (Chupa al jugador hacia el agua central si no usa el dash alejándose constantemente durante 2 segundos).
 

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_mage_nova_hielo"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_mage_nova_hielo"
+enemy_class = 3
+telegraph_sec = 0.7
+cd_min = 8.0
+cd_max = 10.0
+attack_duration = 0.9
+damage_mult = 1.3
+telegraph_type = &"aoe_ground"
+params = {
+"telegraph_time": 0.55,
+"radius": 70.0,
+"apply_freeze": true,
+}
+display_name = "Nova de Hielo"
+description = "Mage R2 alt (Set A): AoeTelegraph fijo bajo player en posición actual + explosión radial 70px tras 0.55s + aplica FREEZE a quien quede dentro. No tracking del player (debe esquivar)."

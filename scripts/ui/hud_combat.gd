@@ -260,6 +260,12 @@ func _element_name(elem: int) -> String:
 			return "AGUA"
 		ItemData.Element.TIERRA:
 			return "TIERRA"
+		ItemData.Element.VIENTO:
+			return "VIENTO"
+		ItemData.Element.LUZ:
+			return "LUZ"
+		ItemData.Element.SOMBRA:
+			return "SOMBRA"
 		_:
 			return "NEUTRAL"
 
@@ -272,5 +278,11 @@ func _element_color(elem: int) -> Color:
 			return Color(0.08, 0.25, 0.7, 0.5)
 		ItemData.Element.TIERRA:
 			return Color(0.4, 0.22, 0.08, 0.5)
+		ItemData.Element.VIENTO:
+			return Color(0.30, 0.55, 0.30, 0.5)
+		ItemData.Element.LUZ:
+			return Color(0.85, 0.82, 0.55, 0.5)
+		ItemData.Element.SOMBRA:
+			return Color(0.30, 0.10, 0.45, 0.5)
 		_:
 			return Color(0.15, 0.15, 0.15, 0.4)

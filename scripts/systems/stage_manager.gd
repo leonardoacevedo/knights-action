@@ -15,6 +15,10 @@ extends Node
 ##
 ## El World es responsable del spawn físico y del cleanup entre stages.
 ## StageManager solo trackea estado y emite eventos.
+##
+## Selección de zona (27/05): `current_zone: int` (1..4) persiste entre cambios de
+## escena (autoload). Main menu lo setea antes de cargar world.tscn. World.gd lee
+## y usa `get_stages_for_zone(current_zone)` para auto-cargar la lista correcta.
 
 # ─── Signals ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +57,71 @@ var _registered_enemies: Array[Node] = []
 ## True desde stage_pending hasta request_combat_start.
 ## Mientras está en true, el world no spawnea y el banner muestra START.
 var _is_pending: bool = false
+
+## Zona activa para la próxima run. Seteado por MainMenu antes de change_scene a world.
+## Default 1 (Valle de los Ecos). Valores válidos: 1, 2, 3, 4.
+var current_zone: int = 1
+
+## Mapeo zona → paths de .tres ordenados. World.gd lo consume vía get_stages_for_zone.
+const ZONE_STAGE_PATHS: Dictionary = {
+	1: [
+		"res://resources/stages/zona1_etapa_1.tres",
+		"res://resources/stages/zona1_etapa_2.tres",
+		"res://resources/stages/zona1_etapa_3.tres",
+		"res://resources/stages/zona1_etapa_4.tres",
+		"res://resources/stages/zona1_etapa_5.tres",
+		"res://resources/stages/zona1_etapa_boss.tres",
+	],
+	2: [
+		"res://resources/stages/zona2_etapa_1.tres",
+		"res://resources/stages/zona2_etapa_2.tres",
+		"res://resources/stages/zona2_etapa_3.tres",
+		"res://resources/stages/zona2_etapa_4.tres",
+		"res://resources/stages/zona2_etapa_5.tres",
+		"res://resources/stages/zona2_etapa_6.tres",
+		"res://resources/stages/zona2_etapa_boss.tres",
+	],
+	3: [
+		"res://resources/stages/zona3_etapa_1.tres",
+		"res://resources/stages/zona3_etapa_2.tres",
+		"res://resources/stages/zona3_etapa_3.tres",
+		"res://resources/stages/zona3_etapa_4.tres",
+		"res://resources/stages/zona3_etapa_5.tres",
+		"res://resources/stages/zona3_etapa_6.tres",
+		"res://resources/stages/zona3_etapa_7.tres",
+		"res://resources/stages/zona3_etapa_boss.tres",
+	],
+	4: [
+		"res://resources/stages/zona4_etapa_1.tres",
+		"res://resources/stages/zona4_etapa_2.tres",
+		"res://resources/stages/zona4_etapa_3.tres",
+		"res://resources/stages/zona4_etapa_4.tres",
+		"res://resources/stages/zona4_etapa_5.tres",
+		"res://resources/stages/zona4_etapa_boss.tres",
+	],
+}
+
+
+## API para MainMenu / debug: setear zona antes de cargar world.tscn.
+func set_zone(zone_id: int) -> void:
+	if not ZONE_STAGE_PATHS.has(zone_id):
+		push_warning("StageManager.set_zone: zone_id %d desconocido. Default 1." % zone_id)
+		current_zone = 1
+		return
+	current_zone = zone_id
+
+
+## Carga los StageData de la zona activa. Returns array vacío si paths inválidos.
+func get_stages_for_zone(zone_id: int) -> Array[StageData]:
+	var result: Array[StageData] = []
+	var paths: Array = ZONE_STAGE_PATHS.get(zone_id, [])
+	for path in paths:
+		var stage: StageData = load(path) as StageData
+		if stage != null:
+			result.append(stage)
+		else:
+			push_warning("StageManager.get_stages_for_zone: no se pudo cargar '%s'" % path)
+	return result
 
 
 # ─── API pública ──────────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@ class_name EnemySpawnEntry
 
 ## Elemento del enemy. Aplica modifier elemental al daño recibido y dado.
 ## Default Neutro = sin ventaja/desventaja contra ningún arma elemental. GDD §5.3.
-@export_enum("Neutro:0", "Fuego:1", "Agua:2", "Tierra:3") var element: int = 0
+@export_enum("Neutro:0", "Fuego:1", "Agua:2", "Tierra:3", "Viento:4", "Luz:5", "Sombra:6") var element: int = 0
 
 ## DropTable específica para enemies de esta entry. Si es null, DropSystem usa
 ## el material_drops de la StageData como fallback. GDD §5.5.

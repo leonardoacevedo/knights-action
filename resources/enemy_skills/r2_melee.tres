@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_melee"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_melee_embestida"
+enemy_class = 0
+telegraph_sec = 0.6
+cd_min = 5.0
+cd_max = 7.0
+attack_duration = 0.25
+damage_mult = 1.5
+telegraph_type = &"dash_trail"
+params = {
+"dash_distance": 120.0,
+"dash_speed": 580.0,
+"knockback": 40.0,
+"knockback_vy": -80.0,
+}
+display_name = "Embestida-Dash"
+description = "Melee R2: dash horizontal 120px hacia el player con hitbox activo + knockback al impactar."

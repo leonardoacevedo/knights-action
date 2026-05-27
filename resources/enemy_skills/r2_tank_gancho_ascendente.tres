@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_tank_gancho"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_tank_gancho_ascendente"
+enemy_class = 1
+telegraph_sec = 0.55
+cd_min = 8.0
+cd_max = 11.0
+attack_duration = 0.35
+damage_mult = 0.7
+telegraph_type = &"windup"
+params = {
+"hitbox_active": 0.18,
+"charges_break": 2,
+}
+display_name = "Gancho Ascendente"
+description = "Tank R2 alt (Set C): hit melee + consume 2 cargas de escudo del player si bloquea. Castiga la pasividad."

@@ -228,6 +228,12 @@ func _connect_signals() -> void:
 		# stage_cleared(index: int)
 		sm.stage_cleared.connect(func(_idx: int) -> void: request_save())
 
+	# PlayerSkillSystem (cambio de loadout)
+	var pss: Node = get_node_or_null("/root/PlayerSkillSystem")
+	if pss != null:
+		# slot_equipped(slot: int, data: PlayerSkillData)
+		pss.slot_equipped.connect(func(_slot: int, _data: PlayerSkillData) -> void: request_save())
+
 
 # Callback para señales sin argumentos.
 func _on_save_trigger() -> void:
@@ -242,6 +248,7 @@ func _build_save_data() -> Dictionary:
 	data["progression"] = _serialize_progression()
 	data["inventory"] = _serialize_inventory()
 	data["gold"] = _serialize_gold()
+	data["skill_loadout"] = _serialize_skill_loadout()
 	return data
 
 
@@ -267,6 +274,13 @@ func _serialize_gold() -> int:
 		push_warning("SaveSystem._serialize_gold: GoldSystem no disponible.")
 		return 0
 	return gs._serialize_state()
+
+
+func _serialize_skill_loadout() -> Dictionary:
+	var pss: Node = get_node_or_null("/root/PlayerSkillSystem")
+	if pss == null:
+		return {}
+	return pss._serialize_state()
 
 
 # ─── Aplicación del save data ─────────────────────────────────────────────────
@@ -297,6 +311,12 @@ func _apply_save_data(data: Dictionary) -> void:
 			gs._restore_state(int(gold_val))
 		else:
 			push_warning("SaveSystem._apply_save_data: GoldSystem no disponible.")
+
+	var loadout: Dictionary = data.get("skill_loadout", {})
+	if not loadout.is_empty():
+		var pss: Node = get_node_or_null("/root/PlayerSkillSystem")
+		if pss != null:
+			pss._restore_state(loadout)
 
 
 # ─── Migration ────────────────────────────────────────────────────────────────

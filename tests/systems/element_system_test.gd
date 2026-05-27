@@ -15,6 +15,15 @@ func _init() -> void:
 	_test_tierra_pierde_fuego()
 	_test_agua_pierde_tierra()
 	_test_fuego_pierde_agua()
+	# Triángulo secundario (extensión 27/05): VIENTO > LUZ > SOMBRA > VIENTO.
+	_test_viento_vence_rayo()
+	_test_rayo_vence_sombra()
+	_test_sombra_vence_viento()
+	_test_rayo_pierde_viento()
+	_test_sombra_pierde_rayo()
+	_test_viento_pierde_sombra()
+	# Cross-triángulo: primario vs secundario = neutral 1.0.
+	_test_cross_triangle_neutral()
 	print("All passed.")
 	quit()
 
@@ -24,6 +33,9 @@ const NEUTRO: int  = ItemData.Element.NEUTRO
 const FUEGO: int   = ItemData.Element.FUEGO
 const AGUA: int    = ItemData.Element.AGUA
 const TIERRA: int  = ItemData.Element.TIERRA
+const VIENTO: int  = ItemData.Element.VIENTO
+const LUZ: int    = ItemData.Element.LUZ
+const SOMBRA: int  = ItemData.Element.SOMBRA
 
 
 func _assert_modifier(attacker: int, defender: int, expected: float, label: String) -> void:
@@ -79,3 +91,42 @@ func _test_agua_pierde_tierra() -> void:
 
 func _test_fuego_pierde_agua() -> void:
 	_assert_modifier(FUEGO, AGUA, 0.66, "FUEGO pierde vs AGUA (×0.66)")
+
+
+# ─── Triángulo secundario ────────────────────────────────────────────────────
+
+func _test_viento_vence_rayo() -> void:
+	_assert_modifier(VIENTO, LUZ, 1.5, "VIENTO vence LUZ (×1.5)")
+
+
+func _test_rayo_vence_sombra() -> void:
+	_assert_modifier(LUZ, SOMBRA, 1.5, "LUZ vence SOMBRA (×1.5)")
+
+
+func _test_sombra_vence_viento() -> void:
+	_assert_modifier(SOMBRA, VIENTO, 1.5, "SOMBRA vence VIENTO (×1.5)")
+
+
+func _test_rayo_pierde_viento() -> void:
+	_assert_modifier(LUZ, VIENTO, 0.66, "LUZ pierde vs VIENTO (×0.66)")
+
+
+func _test_sombra_pierde_rayo() -> void:
+	_assert_modifier(SOMBRA, LUZ, 0.66, "SOMBRA pierde vs LUZ (×0.66)")
+
+
+func _test_viento_pierde_sombra() -> void:
+	_assert_modifier(VIENTO, SOMBRA, 0.66, "VIENTO pierde vs SOMBRA (×0.66)")
+
+
+# ─── Cross-triángulo: primario vs secundario = neutral ──────────────────────
+
+func _test_cross_triangle_neutral() -> void:
+	_assert_modifier(FUEGO, VIENTO, 1.0, "FUEGO vs VIENTO cross-triangle neutral")
+	_assert_modifier(FUEGO, LUZ, 1.0, "FUEGO vs LUZ cross-triangle neutral")
+	_assert_modifier(FUEGO, SOMBRA, 1.0, "FUEGO vs SOMBRA cross-triangle neutral")
+	_assert_modifier(AGUA, VIENTO, 1.0, "AGUA vs VIENTO cross-triangle neutral")
+	_assert_modifier(TIERRA, LUZ, 1.0, "TIERRA vs LUZ cross-triangle neutral")
+	_assert_modifier(VIENTO, FUEGO, 1.0, "VIENTO vs FUEGO cross-triangle neutral")
+	_assert_modifier(SOMBRA, AGUA, 1.0, "SOMBRA vs AGUA cross-triangle neutral")
+	_assert_modifier(LUZ, TIERRA, 1.0, "LUZ vs TIERRA cross-triangle neutral")

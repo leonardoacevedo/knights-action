@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://status_poison"]
+
+[ext_resource type="Script" path="res://scripts/data/status_effect_data.gd" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+id = &"miasma"
+duration = 5.0
+magnitude = 2.0
+tick_interval = 0.5
+stack_mode = 2
+magnitude_policy = 3
+display_name = "Miasma"
+color = Color(0.4, 0.8, 0.3, 1)

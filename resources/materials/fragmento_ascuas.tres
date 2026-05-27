@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3 uid="uid://mat_fragmento_ascuas"]
+
+[ext_resource type="Script" path="res://scripts/data/material_data.gd" id="1_matdata"]
+
+[resource]
+script = ExtResource("1_matdata")
+id = &"fragmento_ascuas"
+display_name = "Fragmento de Ascuas"
+description = "Brasas que aún arden semanas después de su forja. Calientan la mano del que las recoge."
+rarity = 0
+max_stack = 99

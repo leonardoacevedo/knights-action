@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="EnemySkillData" format=3 uid="uid://enemy_skill_r2_melee_tajo_doble"]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_skill_data.gd" id="1_skill"]
+
+[resource]
+script = ExtResource("1_skill")
+id = &"r2_melee_tajo_doble"
+enemy_class = 0
+telegraph_sec = 0.4
+cd_min = 5.0
+cd_max = 7.0
+attack_duration = 0.55
+damage_mult = 0.9
+telegraph_type = &"windup"
+params = {
+"hit1_start": 0.0,
+"hit1_end": 0.15,
+"gap": 0.10,
+"hit2_start": 0.25,
+"hit2_end": 0.40,
+}
+display_name = "Tajo Doble"
+description = "Melee R2 alt (Set B): 2 cortes secuenciales 0.1s gap. Cada hit 0.9× daño = 1.8× total si ambos conectan."
