@@ -6,6 +6,13 @@
 [ext_resource type="Script" uid="uid://dl5opsvpgnlnt" path="res://scripts/world/world.gd" id="5_world"]
 [ext_resource type="PackedScene" uid="uid://b3xlamp2qrt7s" path="res://scenes/ui/inventory_screen.tscn" id="6_inv"]
 [ext_resource type="PackedScene" uid="uid://ct1huev4hyc8n" path="res://scenes/ui/stage_banner.tscn" id="7_banner"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_bga_amanecer_1920x1080.png" id="8_bga"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_bgb_mediodia_1920x1080.png" id="9_bgb"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_bgc_atardecer_1920x1080.png" id="10_bgc"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_mida_ruinas_1920x1080.png" id="11_mida"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1920x1080.png" id="12_midb"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1920x1080.png" id="13_forea"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1920x1080.png" id="14_foreb"]
 
 [sub_resource type="Gradient" id="Gradient_sky"]
 offsets = PackedFloat32Array(0, 0.45, 0.75, 1)
@@ -32,6 +39,7 @@ size = Vector2(40, 800)
 script = ExtResource("5_world")
 
 [node name="Background" type="TextureRect" parent="." unique_id=981097025]
+visible = false
 z_index = -10
 texture_filter = 1
 offset_left = -1200.0
@@ -43,7 +51,40 @@ expand_mode = 1
 
 [node name="ParallaxBackground" type="ParallaxBackground" parent="." unique_id=693188652]
 
+[node name="LayerBG" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.1, 0)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="BGSprite" type="Sprite2D" parent="ParallaxBackground/LayerBG"]
+position = Vector2(0, -400)
+texture = ExtResource("8_bga")
+
+[node name="LayerMid" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.4, 0)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="MidSprite" type="Sprite2D" parent="ParallaxBackground/LayerMid"]
+position = Vector2(0, -300)
+texture = ExtResource("11_mida")
+
+[node name="LayerForeTop" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.7, 0)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="ForeTopSprite" type="Sprite2D" parent="ParallaxBackground/LayerForeTop"]
+position = Vector2(0, -550)
+texture = ExtResource("14_foreb")
+
+[node name="LayerForeBottom" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.8, 0)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="ForeBottomSprite" type="Sprite2D" parent="ParallaxBackground/LayerForeBottom"]
+position = Vector2(0, -50)
+texture = ExtResource("13_forea")
+
 [node name="LayerMountains" type="ParallaxLayer" parent="ParallaxBackground" unique_id=1360325692]
+visible = false
 motion_scale = Vector2(0.15, 0)
 motion_mirroring = Vector2(1200, 0)
 
@@ -73,6 +114,7 @@ color = Color(0.16, 0.18, 0.32, 0.75)
 polygon = PackedVector2Array(-200, 200, -50, -90, 200, 200)
 
 [node name="LayerFoliage" type="ParallaxLayer" parent="ParallaxBackground" unique_id=218507798]
+visible = false
 motion_scale = Vector2(0.45, 0)
 motion_mirroring = Vector2(1200, 0)
 

@@ -64,6 +64,15 @@ const DEFAULT_STAGE_PATHS: Array[String] = [
 
 @onready var _background: TextureRect = $Background
 @onready var _decorations: Node2D = $Decorations
+@onready var _bg_sprite: Sprite2D = $ParallaxBackground/LayerBG/BGSprite
+
+## Texturas de background por stage (Opción A simple — swap por stage_index).
+## BG-A = stages 1-2 (amanecer), BG-B = stages 3-4 (mediodía), BG-C = stage 5 + boss (atardecer).
+const BG_TEXTURES: Dictionary = {
+	"a": preload("res://assets/art/zona1/backgrounds/bg_valle_bga_amanecer_1920x1080.png"),
+	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_bgb_mediodia_1920x1080.png"),
+	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_bgc_atardecer_1920x1080.png"),
+}
 
 ## Plataformas default del .tscn — escondidas cuando un stage tiene overrides.
 ## Se resuelven en _ready (cualquier hijo en grupo "platform").
@@ -275,16 +284,33 @@ func _clear_projectiles() -> void:
 
 
 func _apply_ambient_tint(tint: Color) -> void:
-	# Tinte multiplicativo del background. Color blanco = sin cambio.
-	if _background == null:
+	# Tinte multiplicativo aplicado al BG parallax (no al TextureRect viejo).
+	if _bg_sprite == null:
 		return
-	# Tween suave en 0.6s para que el cambio sea visible pero no abrupto.
 	var tween: Tween = create_tween()
-	tween.tween_property(_background, "modulate", tint, 0.6)
+	tween.tween_property(_bg_sprite, "modulate", tint, 0.6)
 
 
-## Aplica todo lo visual de la stage: tint + plataformas + decoraciones.
+## Swap de la textura del LayerBG según el stage_index. GDD §7.1 Valle de los Ecos:
+## stages 1-2 = amanecer (BG-A), 3-4 = mediodía (BG-B), 5+boss = atardecer (BG-C).
+func _apply_background_for_stage(stage_index: int) -> void:
+	if _bg_sprite == null:
+		return
+	var key: String
+	if stage_index <= 2:
+		key = "a"
+	elif stage_index <= 4:
+		key = "b"
+	else:
+		key = "c"
+	var tex: Texture2D = BG_TEXTURES.get(key, null) as Texture2D
+	if tex != null:
+		_bg_sprite.texture = tex
+
+
+## Aplica todo lo visual de la stage: BG textura + tint + plataformas + decoraciones.
 func _apply_layout(data: StageData) -> void:
+	_apply_background_for_stage(data.stage_index)
 	_apply_ambient_tint(data.ambient_tint)
 	_apply_platforms(data.platform_overrides, data.hide_default_platforms)
 	_apply_decorations(data.show_decorations)
