@@ -42,9 +42,12 @@ class_name World
 @export var scene_tank: PackedScene = preload("res://scenes/entities/enemy_tank.tscn")
 @export var scene_archer: PackedScene = preload("res://scenes/entities/enemy_archer.tscn")
 @export var scene_mage: PackedScene = preload("res://scenes/entities/enemy_mage.tscn")
-## Boss específico del Valle de los Ecos (zona 1). Override del enemy normal cuando
-## la stage tiene is_boss=true y la entry es R4. Ver _spawn_stage.
+## Bosses R4 por clase. Si entry.rarity == R4, se usa el boss específico en vez del
+## enemy genérico. Modos tradicional (is_boss stage) y prueba (TestArenaConfig) cubren ambos.
 @export var scene_boss_guardian: PackedScene = preload("res://scenes/entities/boss_guardian.tscn")
+@export var scene_boss_duelista: PackedScene = preload("res://scenes/entities/boss_duelista.tscn")
+@export var scene_boss_cazadora: PackedScene = preload("res://scenes/entities/boss_cazadora.tscn")
+@export var scene_boss_heraldo: PackedScene = preload("res://scenes/entities/boss_heraldo.tscn")
 
 # ─── Rutas default para auto_load_default_stages ─────────────────────────────
 
@@ -86,6 +89,17 @@ func _ready() -> void:
 	for child in get_children():
 		if child is StaticBody2D and child.is_in_group("platform"):
 			_default_platforms.append(child)
+
+	# Modo prueba: inyectar StageData runtime si TestArenaConfig tiene spawns.
+	# Tiene precedencia sobre todo: ignora lo que esté en `stages` y las defaults.
+	if TestArenaConfig.is_test_mode and not TestArenaConfig.pending_spawns.is_empty():
+		var arena_stage := StageData.new()
+		arena_stage.display_name = "Arena de Prueba"
+		arena_stage.is_boss = false
+		arena_stage.spawns = TestArenaConfig.pending_spawns.duplicate()
+		stages = [arena_stage]
+		# No llamar exit_test_mode aquí: el flag tiene que persistir durante el run
+		# para que los guards de XP/Gold/Drop funcionen. Lo limpia MainMenu al volver.
 
 	# Cargar stages default si no hay y la flag está ON.
 	if stages.is_empty() and auto_load_default_stages:
@@ -142,11 +156,12 @@ func _spawn_stage(data: StageData) -> void:
 		if entry == null:
 			continue
 		var scene: PackedScene = _scene_for_class(entry.enemy_class)
-		# Boss override: si la stage es boss + la entry es R4, reemplazamos el
-		# Tank R4 genérico por el Guardián de la Maleza (boss real con patrones).
-		# No tocamos enums ni stage_data — el .tres queda igual con TANK + R4.
-		if data.is_boss and entry.rarity == GameConfig.EnemyRarity.R4 and scene_boss_guardian != null:
-			scene = scene_boss_guardian
+		# Boss override por clase: cualquier entry R4 usa el boss específico de esa clase.
+		# Aplica tanto al modo tradicional (stage is_boss) como al modo prueba (TestArenaConfig).
+		if entry.rarity == GameConfig.EnemyRarity.R4:
+			var boss_override: PackedScene = _boss_scene_for_class(entry.enemy_class)
+			if boss_override != null:
+				scene = boss_override
 		if scene == null:
 			push_warning("World: scene null para clase %d." % entry.enemy_class)
 			continue
@@ -224,6 +239,15 @@ func _scene_for_class(enemy_class: int) -> PackedScene:
 		GameConfig.EnemyClass.TANK: return scene_tank
 		GameConfig.EnemyClass.ARCHER: return scene_archer
 		GameConfig.EnemyClass.MAGE: return scene_mage
+	return null
+
+
+func _boss_scene_for_class(enemy_class: int) -> PackedScene:
+	match enemy_class:
+		GameConfig.EnemyClass.TANK: return scene_boss_guardian
+		GameConfig.EnemyClass.MELEE: return scene_boss_duelista
+		GameConfig.EnemyClass.ARCHER: return scene_boss_cazadora
+		GameConfig.EnemyClass.MAGE: return scene_boss_heraldo
 	return null
 
 

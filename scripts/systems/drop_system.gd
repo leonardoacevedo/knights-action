@@ -71,6 +71,10 @@ func _on_enemy_died(enemy: Node) -> void:
 	# Limpiar entrada antes de procesar — el enemy ya está muerto.
 	_enemy_tables.erase(enemy)
 
+	# Modo prueba: no acumular drops, el run es de testing.
+	if TestArenaConfig.is_test_mode:
+		return
+
 	if table == null:
 		# Sin tabla configurada: kill sin drops. Normal en stages sin loot todavía.
 		return

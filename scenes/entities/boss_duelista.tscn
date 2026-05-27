@@ -1,0 +1,39 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/entities/boss_duelista.gd" id="2_boss"]
+
+; Hitboxes proporcionales al sprite scale ~1.5x. Hereda del enemy.tscn.
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_duel_body"]
+size = Vector2(26, 80)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_duel_hit"]
+size = Vector2(58, 42)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_duel_hurt"]
+size = Vector2(32, 82)
+
+[node name="BossDuelista" instance=ExtResource("1_base")]
+script = ExtResource("2_boss")
+enemy_class = 0
+rarity = 3
+element = 1
+
+[node name="BodyShape" parent="." index="0"]
+position = Vector2(0, -40)
+shape = SubResource("RectangleShape2D_duel_body")
+
+[node name="StickFigure" parent="." index="1"]
+body_color = Color(1, 0.45, 0.2, 1)
+weapon_scale = 1.6
+
+[node name="Hitbox" parent="." index="3"]
+position = Vector2(40, -40)
+
+[node name="HitboxShape" parent="Hitbox" index="0"]
+shape = SubResource("RectangleShape2D_duel_hit")
+
+[node name="HurtboxShape" parent="Hurtbox" index="0"]
+position = Vector2(0, -42)
+shape = SubResource("RectangleShape2D_duel_hurt")

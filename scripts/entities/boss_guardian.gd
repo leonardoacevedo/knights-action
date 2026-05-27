@@ -152,7 +152,8 @@ func _apply_boss_visuals() -> void:
 	# Color: verde-musgo dorado para identidad del Valle.
 	sprite.body_color = Color(0.55, 0.65, 0.35, 1.0)
 	# Scale del boss: 1.4× sobre el rarity_scale_for(R4)=1.45 → ~2.0× del normal.
-	# Sumar visualmente "imponente" sin tocar hitbox/hurtbox físicos.
+	# Hitbox/Hurtbox/BodyShape escalan acompañando en boss_guardian.tscn — la
+	# presencia visual y la colisión coinciden (no más boss grande con caja chica).
 	sprite.scale = Vector2.ONE * GameConfig.rarity_scale_for(rarity) * 1.40
 	sprite.weapon_scale = 1.8
 	# Boostear el BossAura del padre: más partículas, persistente, verde-dorado intenso.

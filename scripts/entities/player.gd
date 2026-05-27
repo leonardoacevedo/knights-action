@@ -52,6 +52,22 @@ var _fuego_next_attack_aoe: bool = false
 ## Multiplicador sobre SPEED. Seteado por PlayerStatsComponent vía MOVE_SPEED_PCT.
 var move_speed_mult: float = 1.0
 
+## Slow externo aplicado por skills enemigas (ej. Mareo Frío de la Cazadora).
+## Multiplicador sobre la SPEED final. 1.0 = sin slow. 0.5 = mitad de velocidad.
+## Decrementa con `_external_speed_timer`. Cuando expira vuelve a 1.0.
+var _external_speed_mult: float = 1.0
+var _external_speed_timer: float = 0.0
+
+## Tank R2 que tiene al player en TAUNT. Mientras != null:
+## - El facing del player se fuerza hacia el tank (ignora input lateral).
+## - La velocidad horizontal del player se fuerza hacia el tank (movimiento atraído).
+## - Player puede saltar, atacar, bloquear, dashear normalmente — solo el horizontal
+##   movement + facing están forzados.
+## Seteado por Enemy._start_taunt() y limpiado en _end_taunt() / muerte del tank.
+## Distancia de "pegado" — dentro de este radio el pull se corta para no glitchear.
+var _taunt_source: Node2D = null
+const TAUNT_PULL_STOP_DISTANCE: float = 35.0
+
 ## Post-dash buff de Golpe Tras Dash (skill agil_golpe_tras_dash).
 ## Si > 0.0, el próximo golpe aplica este multiplicador extra de daño.
 var _post_dash_damage_mult: float = 0.0
@@ -155,6 +171,36 @@ func set_move_speed_mult(mult: float) -> void:
 	move_speed_mult = mult
 
 
+## API para Enemy (tank R2) cuando inicia/termina su Taunt MMO clásico.
+## Mientras el tank tenga taunt activo, el player es arrastrado físicamente hacia él.
+## Decisión Leo: aunque se sienta "roto" en feel, el taunt DEBE ser así para que cumpla
+## su rol — atrae al player obligatoriamente. Liberar pasando null.
+func set_taunt_source(tank: Node2D) -> void:
+	_taunt_source = tank
+
+
+## API para skills de bosses que aplican slow temporal al player.
+## mult: multiplicador sobre SPEED (0.5 = 50% velocidad).
+## duration: segundos del efecto. Si ya hay slow activo, gana el más restrictivo.
+func apply_slow(mult: float, duration: float) -> void:
+	if mult <= 0.0 or duration <= 0.0:
+		return
+	# Si ya hay slow activo, conservar el mult más bajo (más restrictivo) y el timer más largo.
+	if _external_speed_timer > 0.0:
+		_external_speed_mult = min(_external_speed_mult, mult)
+		_external_speed_timer = max(_external_speed_timer, duration)
+	else:
+		_external_speed_mult = mult
+		_external_speed_timer = duration
+
+
+## API para skills de enemies que aplican knockback (ej. R2 melee embestida).
+## Suma el vector a velocity actual — se consume al siguiente _physics_process
+## via fricción + gravedad. El dash sigue teniendo prioridad (override total).
+func apply_external_velocity(push: Vector2) -> void:
+	velocity += push
+
+
 func _physics_process(delta: float) -> void:
 	# Dash tiene prioridad sobre todo.
 	if dash.is_dashing:
@@ -165,6 +211,7 @@ func _physics_process(delta: float) -> void:
 
 	_tick_post_dash_buffs(delta)
 	_tick_espiritu_marcial(delta)
+	_tick_external_slow(delta)
 	_apply_gravity(delta)
 	_handle_input()
 	_tick_attack(delta)
@@ -188,17 +235,33 @@ func _handle_input() -> void:
 	var wants_block: bool = Input.is_action_pressed("block") and can_block
 	shield.set_blocking(wants_block)
 
-	var dir: float = Input.get_axis("ui_left", "ui_right")
-	if dir != 0.0:
-		var new_facing: int = int(sign(dir))
-		if new_facing != current_facing:
-			_apply_facing(new_facing)
-		# Velocidad reducida al 50% mientras bloqueás (decisión Leo).
-		# move_speed_mult aplica bonus de skill MOVE_SPEED_PCT encima.
-		var speed_mult: float = 0.5 if shield.is_blocking else 1.0
-		velocity.x = dir * SPEED * speed_mult * move_speed_mult
+	# TAUNT MMO: si hay tank tauntando, forzar facing + movement horizontal hacia él.
+	# Override total sobre el input lateral. Player puede saltar/atacar/bloquear/dashear.
+	if _taunt_source != null and is_instance_valid(_taunt_source):
+		var dx: float = _taunt_source.global_position.x - global_position.x
+		var taunt_facing: int = int(sign(dx)) if abs(dx) > 1.0 else current_facing
+		if taunt_facing != current_facing and taunt_facing != 0:
+			_apply_facing(taunt_facing)
+		# Pull horizontal a SPEED completa (no se puede contrarrestar).
+		# Si está pegado al tank (dentro de TAUNT_PULL_STOP_DISTANCE), no se mueve.
+		if abs(dx) <= TAUNT_PULL_STOP_DISTANCE:
+			velocity.x = 0.0
+		else:
+			var speed_mult_t: float = 0.5 if shield.is_blocking else 1.0
+			velocity.x = float(taunt_facing) * SPEED * speed_mult_t * move_speed_mult * _external_speed_mult
 	else:
-		velocity.x = move_toward(velocity.x, 0.0, SPEED)
+		var dir: float = Input.get_axis("ui_left", "ui_right")
+		if dir != 0.0:
+			var new_facing: int = int(sign(dir))
+			if new_facing != current_facing:
+				_apply_facing(new_facing)
+			# Velocidad reducida al 50% mientras bloqueás (decisión Leo).
+			# move_speed_mult aplica bonus de skill MOVE_SPEED_PCT encima.
+			# _external_speed_mult aplica slow de skills enemigas (ej. Mareo Frío).
+			var speed_mult: float = 0.5 if shield.is_blocking else 1.0
+			velocity.x = dir * SPEED * speed_mult * move_speed_mult * _external_speed_mult
+		else:
+			velocity.x = move_toward(velocity.x, 0.0, SPEED)
 
 	if Input.is_action_just_pressed("dash"):
 		# Dash cancela el bloqueo (suelta y dasha).
@@ -568,6 +631,15 @@ func _tick_espiritu_marcial(delta: float) -> void:
 		if _espiritu_marcial_timer <= 0.0:
 			_espiritu_marcial_timer = 0.0
 			_espiritu_marcial_active = false
+
+
+## Avanza timer del slow externo (ej. Mareo Frío de la Cazadora) y restaura speed.
+func _tick_external_slow(delta: float) -> void:
+	if _external_speed_timer > 0.0:
+		_external_speed_timer -= delta
+		if _external_speed_timer <= 0.0:
+			_external_speed_timer = 0.0
+			_external_speed_mult = 1.0
 
 
 # ─── Flags de 3pc — actualizados al cambiar equipo ───────────────────────────

@@ -12,7 +12,7 @@ class_name Enemy
 ## Para apagar/prender globalmente: editar GameConfig (archivo .env).
 var DEBUG_ENABLED: bool = false
 
-enum State { IDLE, CHASE, TELEGRAPH, ATTACK, RECOVERY, HURT, DEAD, BLOCK, DODGE, SKILL_TELEGRAPH, SKILL_ATTACK }
+enum State { IDLE, CHASE, TELEGRAPH, ATTACK, RECOVERY, HURT, DEAD, BLOCK, DODGE, SKILL_TELEGRAPH, SKILL_ATTACK, R2_SKILL_TELEGRAPH, R2_SKILL_ATTACK }
 
 # Stats variables — seteados en _ready() desde GameConfig según enemy_class.
 var speed: float = 400.0                  # paridad base con el player
@@ -118,7 +118,7 @@ const BLOCK_TRIGGER_CHANCE: float = 0.40
 # ─── R3: dodge + skill ────────────────────────────────────────────────────────
 ## Cooldown restante del dash de esquiva.
 var _dodge_cooldown: float = 0.0
-## Cooldown restante del skill especial.
+## Cooldown restante del skill R3 especial.
 var _skill_cooldown: float = 0.0
 ## Flag: el skill disparó el proyectil especial en este ciclo.
 var _skill_fired_this_cast: bool = false
@@ -138,9 +138,93 @@ const SKILL_TELEGRAPH_SECONDS: float = 1.5
 const SKILL_ATTACK_DURATION: float = 0.3
 ## Daño del skill = daño_normal * este multiplicador.
 const SKILL_DAMAGE_MULT: float = 1.5
-## Cooldown del skill (segundos). Varía +RNG en _skill_cooldown_reset.
+## Cooldown del skill R3 (segundos). Varía +RNG al resetear.
 const SKILL_COOLDOWN_MIN: float = 6.0
 const SKILL_COOLDOWN_MAX: float = 8.0
+
+# ─── R3 Guerrero: Sed de Sangre (buff propio) ────────────────────────────────
+## Cooldown del buff "Sed de Sangre". Solo Guerrero R3.
+## 12s base. Cuando llega a 0 en CHASE, activa el buff antes de pelear.
+var _skill_r3_buff_cooldown: float = 12.0
+## Tiempo restante del buff activo (0 = inactivo).
+var _r3_buff_timer: float = 0.0
+## Duración del buff (5s).
+const R3_BUFF_DURATION: float = 5.0
+## Multiplicador de velocidad durante el buff (×1.2).
+const R3_BUFF_SPEED_MULT: float = 1.20
+## Multiplicador de velocidad de recuperación (×0.83 = ataques más rápidos).
+const R3_BUFF_RECOVERY_MULT: float = 0.83
+## Duración de telegrafía del buff (1.0s según spec).
+const R3_BUFF_TELEGRAPH_SECONDS: float = 1.0
+## Cooldown base del buff en segundos.
+const R3_BUFF_COOLDOWN: float = 12.0
+## True mientras el SKILL_TELEGRAPH/SKILL_ATTACK corresponden al buff (no al proyectil potenciado).
+var _r3_buff_casting: bool = false
+
+# ─── R2: skill activo por clase ───────────────────────────────────────────────
+## Cooldown restante del skill R2. Independiente del cooldown R3.
+var _skill_r2_cooldown: float = 0.0
+## Flag: el skill R2 ya ejecutó su acción en este ciclo (proyectil, dash, etc.).
+var _skill_r2_fired: bool = false
+## Flag: el tank tiene el taunt activo ahora mismo.
+var _taunt_active: bool = false
+## Tiempo restante del taunt (R2 Tank).
+var _taunt_timer: float = 0.0
+## Cache de Line2D activos para las líneas del taunt (un Line2D por aliado protegido).
+var _taunt_lines: Array[Line2D] = []
+## Lista de enemies dentro del radio del taunt (protegidos por el tank).
+var _taunt_soakers: Array[Node2D] = []
+## Posición destino X del melee-dash R2 (Melee skill).
+var _r2_melee_dash_target_x: float = 0.0
+## Velocidad del melee dash R2 (px/s).
+const R2_MELEE_DASH_SPEED: float = 580.0
+## Distancia del dash del skill R2 Melee (px).
+const R2_MELEE_DASH_DISTANCE: float = 120.0
+## Knockback aplicado al player tras el dash skill (px). Positivo = alejarse.
+const R2_MELEE_KNOCKBACK: float = 40.0
+## Duración de la telegrafía R2 (reusar SKILL_TELEGRAPH_SECONDS como mínimo — ver tabla).
+## Radio del taunt tank (px). Enemies dentro de este radio reciben protección.
+## Nerf 26/05: 60 → 45 — cubre 1-2 enemies típicos, no 2-3.
+const R2_TANK_TAUNT_RADIUS: float = 45.0
+## Duración del taunt (segundos).
+const R2_TANK_TAUNT_DURATION: float = 3.0
+## Porcentaje de daño redirigido al tank durante el taunt.
+## Cambio 27/05: 0.3 → 1.0 — TAUNT MMO clásico. El tank ABSORBE 100% del daño que
+## el player intenta hacer a sus aliados dentro del radio. Mecánica clara y firme:
+## "romper al tank o no pegarle a nadie en su zona".
+const R2_TANK_TAUNT_REDIRECT: float = 1.0
+
+## Tabla de configuración del skill R2 por clase.
+## Keys: interos del enum EnemyClass (MELEE=0, TANK=1, ARCHER=2, MAGE=3).
+## Uso directo de enteros para evitar dependencia de parseo estático sobre GameConfig autoload.
+## Sub-keys: telegraph_sec, cd_min, cd_max, attack_duration.
+## Los valores de telegrafía cumplen GDD §7.3 R2: ≥0.5s ataques pesados.
+const R2_SKILL_TABLE: Dictionary = {
+	2: {  ## ARCHER
+		"telegraph_sec": 0.8,
+		"cd_min": 7.0,
+		"cd_max": 9.0,
+		"attack_duration": 0.35,
+	},
+	0: {  ## MELEE
+		"telegraph_sec": 0.6,
+		"cd_min": 5.0,
+		"cd_max": 7.0,
+		"attack_duration": 0.25,
+	},
+	3: {  ## MAGE
+		"telegraph_sec": 1.2,
+		"cd_min": 9.0,
+		"cd_max": 11.0,
+		"attack_duration": 0.4,
+	},
+	1: {  ## TANK
+		"telegraph_sec": 0.5,
+		"cd_min": 11.0,
+		"cd_max": 13.0,
+		"attack_duration": 0.3,
+	},
+}
 
 # Debug: cache para imprimir solo cuando cambia algo relevante.
 var _dbg_last_facing: int = 0
@@ -190,6 +274,10 @@ func _ready() -> void:
 	# Inicializar skill cooldown para R3 (empieza con un delay inicial antes del primer cast).
 	if rarity == GameConfig.EnemyRarity.R3:
 		_skill_cooldown = SKILL_COOLDOWN_MIN
+	# Inicializar cooldown R2 skill (R2 y R3 lo usan — R3 hereda la skill R2 de su clase).
+	if rarity == GameConfig.EnemyRarity.R2 or rarity == GameConfig.EnemyRarity.R3:
+		if R2_SKILL_TABLE.has(enemy_class):
+			_skill_r2_cooldown = R2_SKILL_TABLE[enemy_class]["cd_min"]
 
 	hurtbox.health_component = health
 	hurtbox.team = team
@@ -283,13 +371,29 @@ func _physics_process(delta: float) -> void:
 		_jump_cooldown_timer -= delta
 	if _intermediate_check_timer > 0.0:
 		_intermediate_check_timer -= delta
-	# Cooldowns de rareza (R2 block, R3 dodge + skill).
+	# Cooldowns de rareza (R2 block + skill, R3 dodge + skill R3).
 	if _block_cooldown > 0.0:
 		_block_cooldown -= delta
 	if _dodge_cooldown > 0.0:
 		_dodge_cooldown -= delta
 	if _skill_cooldown > 0.0:
 		_skill_cooldown -= delta
+	if _skill_r2_cooldown > 0.0:
+		_skill_r2_cooldown -= delta
+	# Guerrero R3: Sed de Sangre — cooldown y timer del buff activo.
+	if enemy_class == GameConfig.EnemyClass.MELEE and rarity == GameConfig.EnemyRarity.R3:
+		if _skill_r3_buff_cooldown > 0.0:
+			_skill_r3_buff_cooldown -= delta
+		if _r3_buff_timer > 0.0:
+			_r3_buff_timer -= delta
+			if _r3_buff_timer <= 0.0:
+				_end_sed_de_sangre()
+	# Taunt tank: desactivar al expirar.
+	if _taunt_active:
+		_taunt_timer -= delta
+		_update_taunt_lines()
+		if _taunt_timer <= 0.0:
+			_end_taunt()
 
 	_apply_gravity(delta)
 	if DEBUG_ENABLED and state == State.CHASE:
@@ -325,11 +429,37 @@ func _tick_state(delta: float) -> void:
 				_change_state(State.IDLE)
 				return
 
-			# R3 exacto: skill especial. R4 excluido (boss-designer lo maneja).
-			# dist < detect_range * 0.6 evita que skill se telegrafie 'desde lejos' (sugerencia enemy-ai 25/05).
-			if rarity == GameConfig.EnemyRarity.R3 and _skill_cooldown <= 0.0:
+			# Guerrero R3: Sed de Sangre — buff propio. Prioridad máxima (se buffea antes de pelear).
+			# Solo activo para Melee R3. No consume SKILL_TELEGRAPH — se reutiliza la misma telegrafía
+			# con _r3_buff_casting=true para distinguir que el SKILL_ATTACK activa buff (no proyectil).
+			if enemy_class == GameConfig.EnemyClass.MELEE and rarity == GameConfig.EnemyRarity.R3:
+				if _skill_r3_buff_cooldown <= 0.0 and _r3_buff_timer <= 0.0 and is_on_floor():
+					if dist < detect_range * 0.6:
+						_r3_buff_casting = true
+						_change_state(State.SKILL_TELEGRAPH)
+						return
+
+			# R3 exacto: skill especial R3. R4 excluido (boss-designer lo maneja).
+			# dist < detect_range * 0.6 evita telegrafía desde lejos.
+			# Si ambos cooldowns R3 y R2 están listos: prioridad R3 (más poderoso).
+			# MELEE R3 excluido: tiene Embestida (R2) + Sed de Sangre (R3 propia) = 3 skills.
+			# La skill genérica R3 (hitbox ampliada) era redundante con ataque básico.
+			if rarity == GameConfig.EnemyRarity.R3 and _skill_cooldown <= 0.0 \
+					and enemy_class != GameConfig.EnemyClass.MELEE:
 				if dist < detect_range * 0.6 and is_on_floor():
 					_change_state(State.SKILL_TELEGRAPH)
+					return
+
+			# R2 y R3: skill activo por clase. Cooldown independiente del skill R3.
+			# R4 excluido. Tank: puede usarlo desde distancia (taunt es area, no necesita contact).
+			if (rarity == GameConfig.EnemyRarity.R2 or rarity == GameConfig.EnemyRarity.R3) \
+					and _skill_r2_cooldown <= 0.0 and is_on_floor():
+				var r2_range_ok: bool = dist < detect_range * 0.6
+				# Tank usa rango más amplio (el taunt es area, no proyectil).
+				if enemy_class == GameConfig.EnemyClass.TANK:
+					r2_range_ok = dist < detect_range * 0.8
+				if r2_range_ok:
+					_change_state(State.R2_SKILL_TELEGRAPH)
 					return
 
 			# R2/R3: reaccionar al ataque del player — bloqueo o dodge.
@@ -436,15 +566,29 @@ func _tick_state(delta: float) -> void:
 				sprite.set_state(StickFigure.State.WALK)
 
 		State.SKILL_TELEGRAPH:
-			# R3: telegrafía larga del skill especial (1.5s). El player DEBE reaccionar.
+			# R3: telegrafía del skill (1.5s normal, 1.0s para buff Sed de Sangre).
 			velocity.x = 0.0
-			if _state_timer >= SKILL_TELEGRAPH_SECONDS:
+			var tele_thresh: float = R3_BUFF_TELEGRAPH_SECONDS if _r3_buff_casting else SKILL_TELEGRAPH_SECONDS
+			if _state_timer >= tele_thresh:
 				_change_state(State.SKILL_ATTACK)
 
 		State.SKILL_ATTACK:
-			# R3: ejecución del skill. Para ranged = proyectil potenciado. Para melee = hitbox ampliada.
+			# R3: ejecución del skill. Si _r3_buff_casting → activa Sed de Sangre y vuelve a CHASE.
 			velocity.x = 0.0
 			sprite.set_state(StickFigure.State.ATTACK)
+			if _r3_buff_casting:
+				# Buff Sed de Sangre: se activa instantáneamente en el primer frame de SKILL_ATTACK.
+				if not _skill_fired_this_cast:
+					_activate_sed_de_sangre()
+					_skill_fired_this_cast = true
+				# Duración corta: el "ataque" del buff es solo visualmente; vuelve a CHASE rápido.
+				if _state_timer >= SKILL_ATTACK_DURATION:
+					_skill_fired_this_cast = false
+					_r3_buff_casting = false
+					_skill_r3_buff_cooldown = R3_BUFF_COOLDOWN
+					_change_state(State.RECOVERY)
+				return
+			# Skill normal R3 (proyectil potenciado para ranged, hitbox ampliada para melee).
 			if _is_ranged():
 				if _state_timer >= ATTACK_ACTIVE_START and not _skill_fired_this_cast:
 					_spawn_skill_projectile()
@@ -461,6 +605,18 @@ func _tick_state(delta: float) -> void:
 				_skill_cooldown = randf_range(SKILL_COOLDOWN_MIN, SKILL_COOLDOWN_MAX)
 				_change_state(State.RECOVERY)
 
+		# ── R2 Skill: telegrafía ──────────────────────────────────────────────
+		State.R2_SKILL_TELEGRAPH:
+			velocity.x = 0.0
+			var r2_data: Dictionary = R2_SKILL_TABLE.get(enemy_class, {})
+			var r2_tele: float = r2_data.get("telegraph_sec", 0.6)
+			if _state_timer >= r2_tele:
+				_change_state(State.R2_SKILL_ATTACK)
+
+		# ── R2 Skill: ejecución ───────────────────────────────────────────────
+		State.R2_SKILL_ATTACK:
+			_tick_r2_skill_attack()
+
 
 func _change_state(new_state: State) -> void:
 	var prev: State = state
@@ -468,14 +624,29 @@ func _change_state(new_state: State) -> void:
 	_state_timer = 0.0
 
 	# Cleanup de efectos al salir de estados especiales.
-	if prev == State.TELEGRAPH or prev == State.SKILL_TELEGRAPH:
+	if prev == State.TELEGRAPH or prev == State.SKILL_TELEGRAPH or prev == State.R2_SKILL_TELEGRAPH:
 		sprite.end_telegraph()
+	# Si salimos de SKILL_TELEGRAPH/SKILL_ATTACK de forma inesperada, limpiar flag del buff.
+	if prev == State.SKILL_TELEGRAPH or prev == State.SKILL_ATTACK:
+		if _r3_buff_casting and new_state != State.SKILL_ATTACK:
+			_r3_buff_casting = false
+			# Limpiar VFX de telegrafía del buff si quedó activo.
+			var buff_vfx: Node = get_node_or_null("SedDeSangreTelegraphVFX")
+			if buff_vfx != null:
+				buff_vfx.queue_free()
 	if prev == State.BLOCK:
 		# Desconectar el handler del hurtbox y apagar el aura.
 		# deactivate() ya fue llamado antes de _change_state (timeout) o el bloqueo
 		# fue roto por golpe (_on_block_absorbed antes de este cambio de estado).
 		hurtbox.shield = null
 		sprite.end_block_aura()
+	# Cleanup del melee-dash R2 si sale de SKILL_ATTACK por interrupción.
+	if prev == State.R2_SKILL_ATTACK:
+		hitbox.set_active(false)
+		_skill_r2_fired = false
+		# Restaurar daño normal si era skill melee (que sube hitbox.damage).
+		if enemy_class == GameConfig.EnemyClass.MELEE:
+			hitbox.damage = GameConfig.enemy_damage_with_rarity(enemy_class, rarity)
 
 	match new_state:
 		State.TELEGRAPH:
@@ -502,9 +673,14 @@ func _change_state(new_state: State) -> void:
 			_apply_facing(-dodge_dir)  # mirar hacia el player mientras escapa
 
 		State.SKILL_TELEGRAPH:
-			# R3: telegrafía larga del skill. El "!" del stickfigure dura más que el ataque normal.
-			sprite.start_telegraph(SKILL_TELEGRAPH_SECONDS)
+			# R3: telegrafía del skill. Si _r3_buff_casting, es la telegrafía del buff (1.0s).
+			# Si no, es la del proyectil potenciado (SKILL_TELEGRAPH_SECONDS=1.5s).
+			var tele_dur: float = R3_BUFF_TELEGRAPH_SECONDS if _r3_buff_casting else SKILL_TELEGRAPH_SECONDS
+			sprite.start_telegraph(tele_dur)
 			_face_target()
+			# VFX buff: aura roja pulsante durante la telegrafía del buff.
+			if _r3_buff_casting:
+				_spawn_sed_de_sangre_telegraph_vfx()
 
 		State.SKILL_ATTACK:
 			# R3: daño aumentado para el skill — temporalmente sobreescribimos el hitbox.
@@ -512,9 +688,23 @@ func _change_state(new_state: State) -> void:
 				* SKILL_DAMAGE_MULT))
 
 		State.RECOVERY:
-			# Restaurar daño normal si salimos de un skill attack.
-			if prev == State.SKILL_ATTACK:
+			# Restaurar daño normal si salimos de un skill attack R3 o R2 melee.
+			if prev == State.SKILL_ATTACK or prev == State.R2_SKILL_ATTACK:
 				hitbox.damage = GameConfig.enemy_damage_with_rarity(enemy_class, rarity)
+
+		# ── R2 Skill: enter ───────────────────────────────────────────────────
+		State.R2_SKILL_TELEGRAPH:
+			# Telegrafía visible con duración según la tabla de la clase.
+			var r2_data: Dictionary = R2_SKILL_TABLE.get(enemy_class, {})
+			var r2_tele: float = r2_data.get("telegraph_sec", 0.6)
+			sprite.start_telegraph(r2_tele)
+			_face_target()
+			# VFX: partícula de "carga" específica por clase.
+			_spawn_r2_telegraph_vfx()
+
+		State.R2_SKILL_ATTACK:
+			# Preparar la ejecución según la clase.
+			_enter_r2_skill_attack()
 
 
 func _distance_to_target() -> float:
@@ -571,6 +761,15 @@ func _on_died() -> void:
 	sprite.end_block_aura()
 	hurtbox.set_invulnerable(false)
 	hitbox.set_active(false)
+	# Limpiar taunt si el tank muere con él activo.
+	if _taunt_active:
+		_end_taunt()
+	# Limpiar Sed de Sangre si el guerrero R3 muere con buff activo.
+	if _r3_buff_timer > 0.0:
+		_end_sed_de_sangre()
+	# Si este enemy era soaker de otro tank, limpiar referencia.
+	if hurtbox.taunt_soaker != null:
+		hurtbox.taunt_soaker = null
 	# Apagar aura si era boss R4.
 	var aura: GPUParticles2D = get_node_or_null("BossAura") as GPUParticles2D
 	if aura != null:
@@ -1077,6 +1276,22 @@ func _spawn_projectile() -> void:
 	var direction: Vector2 = (aim_point - proj.global_position).normalized()
 	# Elemento del enemy propagado al proyectil para el modifier elemental. GDD §5.3.
 	proj.launch(direction, hitbox.damage, team, element)
+
+	# ── Mage R1+: Orbe Flamígero — AoE radial post-impacto ──────────────────
+	# Regla R1→R2→R3: la mejora del ataque básico se hereda a rarezas superiores.
+	# Solo aplica al ATAQUE BÁSICO. La skill R2 (fireball grande) va por path
+	# separado `_spawn_r2_mage_fireball` — ahí NO se aplica (ya es ×1.5/×1.8 overkill).
+	# R4 excluido (boss tiene script propio).
+	if enemy_class == GameConfig.EnemyClass.MAGE and rarity != GameConfig.EnemyRarity.R4:
+		proj.enable_aoe_on_impact(35.0, 0.6, 0.4)
+
+	# ── Archer R1+: Flecha Perforante — atraviesa hasta 3 enemies ───────────
+	# Regla R1→R2→R3: idem. La ráfaga R2 va por path separado y NO perfora
+	# (3 flechas × 3 pierce = 9 hits — demasiado).
+	if enemy_class == GameConfig.EnemyClass.ARCHER and rarity != GameConfig.EnemyRarity.R4:
+		proj.pierce_enemies = true
+		proj.pierce_count = 3
+
 	# Agregar al árbol raíz del world para que sobreviva al move del enemy.
 	get_tree().current_scene.add_child(proj)
 
@@ -1156,6 +1371,580 @@ func _on_block_absorbed(_amount: int, _source: HitboxComponent) -> void:
 	_block_cooldown = BLOCK_COOLDOWN_SECONDS
 	_change_state(State.TELEGRAPH)
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ─── R2 Skill: métodos de implementación ─────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+## VFX de telegrafía R2. Partícula de "carga" visual diferente por clase.
+## Dura mientras el enemy está en R2_SKILL_TELEGRAPH (se limpia con queue_free
+## del nodo padre al cambiar de estado, o al destruir el enemy).
+func _spawn_r2_telegraph_vfx() -> void:
+	# Limpiar VFX anterior si existe (previene doble-spawn si algo fuerza re-enter).
+	var old: Node = get_node_or_null("R2TelegraphVFX")
+	if old != null:
+		old.queue_free()
+
+	var particles: GPUParticles2D = GPUParticles2D.new()
+	particles.name = "R2TelegraphVFX"
+	particles.amount = 6   # mobile: máximo 6 partículas simultáneas
+	particles.lifetime = 0.5
+	particles.preprocess = 0.0
+	particles.explosiveness = 0.3
+	particles.z_index = 1  # delante del cuerpo para que sea legible
+
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 12.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 60.0
+	mat.initial_velocity_min = 20.0
+	mat.initial_velocity_max = 50.0
+	mat.scale_min = 0.5
+	mat.scale_max = 1.2
+
+	# Color por clase: archer=amarillo dorado, melee=rojo-naranja, mage=azul eléctrico, tank=naranja.
+	var grad: Gradient = Gradient.new()
+	match enemy_class:
+		GameConfig.EnemyClass.ARCHER:
+			particles.position = Vector2(0, -55)  # sobre el arco
+			mat.emission_sphere_radius = 10.0
+			grad.set_color(0, Color(1.0, 0.9, 0.2, 1.0))
+			grad.set_color(1, Color(1.0, 0.7, 0.0, 0.0))
+		GameConfig.EnemyClass.MELEE:
+			particles.position = Vector2(current_facing * 20.0, -30)  # lado de la espada
+			grad.set_color(0, Color(1.0, 0.35, 0.1, 1.0))
+			grad.set_color(1, Color(0.9, 0.1, 0.0, 0.0))
+		GameConfig.EnemyClass.MAGE:
+			particles.position = Vector2(0, -50)  # punta del staff
+			mat.emission_sphere_radius = 16.0
+			particles.amount = 6
+			grad.set_color(0, Color(0.3, 0.6, 1.0, 1.0))
+			grad.set_color(1, Color(0.1, 0.3, 1.0, 0.0))
+		GameConfig.EnemyClass.TANK:
+			particles.position = Vector2(0, -40)  # cuerpo del tank
+			mat.emission_sphere_radius = 20.0
+			grad.set_color(0, Color(1.0, 0.55, 0.0, 0.9))
+			grad.set_color(1, Color(1.0, 0.3, 0.0, 0.0))
+
+	var grad_tex: GradientTexture1D = GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+	particles.process_material = mat
+	particles.emitting = true
+	add_child(particles)
+
+
+## Enter del estado R2_SKILL_ATTACK. Prepara la ejecución por clase.
+func _enter_r2_skill_attack() -> void:
+	_skill_r2_fired = false
+	_face_target()
+	# Limpiar VFX de telegrafía al ejecutar.
+	var vfx: Node = get_node_or_null("R2TelegraphVFX")
+	if vfx != null:
+		vfx.queue_free()
+
+	match enemy_class:
+		GameConfig.EnemyClass.MELEE:
+			# ── R2 Skill MELEE: Embestida-dash ────────────────────────────────
+			# Calcula destino: 120px hacia el player.
+			var dash_dir: int = current_facing
+			_r2_melee_dash_target_x = global_position.x + dash_dir * R2_MELEE_DASH_DISTANCE
+			# Daño con multiplicador (reutiliza SKILL_DAMAGE_MULT).
+			hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+				* SKILL_DAMAGE_MULT))
+			hitbox.set_active(true)  # hitbox activo todo el dash
+
+		GameConfig.EnemyClass.ARCHER:
+			# ── R2 Skill ARCHER: carga en enter, disparo en _tick ─────────────
+			# Daño normal (3 flechas = 3× daño), se disparan en _tick.
+			pass
+
+		GameConfig.EnemyClass.MAGE:
+			# ── R2 Skill MAGE: fireball grande ────────────────────────────────
+			# Daño amplificado: SKILL_DAMAGE_MULT.
+			hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
+				* SKILL_DAMAGE_MULT))
+
+		GameConfig.EnemyClass.TANK:
+			# ── R2 Skill TANK: Taunt + aura ───────────────────────────────────
+			_start_taunt()
+
+
+## Tick del estado R2_SKILL_ATTACK. Comportamiento por clase.
+func _tick_r2_skill_attack() -> void:
+	var r2_data: Dictionary = R2_SKILL_TABLE.get(enemy_class, {})
+	var r2_duration: float = r2_data.get("attack_duration", 0.3)
+	sprite.set_state(StickFigure.State.ATTACK)
+
+	match enemy_class:
+		# ── R2 Skill MELEE: Embestida-dash ────────────────────────────────────
+		GameConfig.EnemyClass.MELEE:
+			var dx: float = _r2_melee_dash_target_x - global_position.x
+			if abs(dx) < 6.0 or not is_on_floor():
+				# Llegó o cayó — cortar el dash y aplicar knockback si alcanzó al player.
+				velocity.x = 0.0
+				hitbox.set_active(false)
+				if not _skill_r2_fired:
+					# Knockback al player si está cerca.
+					_apply_r2_melee_knockback()
+					_skill_r2_fired = true
+				_finish_r2_skill()
+			else:
+				velocity.x = sign(dx) * R2_MELEE_DASH_SPEED
+			return  # el melee dash controla su propio timer por posición
+
+		# ── R2 Skill ARCHER: ráfaga 3 flechas spread ──────────────────────────
+		GameConfig.EnemyClass.ARCHER:
+			velocity.x = 0.0
+			if _state_timer >= ATTACK_ACTIVE_START and not _skill_r2_fired:
+				_spawn_r2_archer_burst()
+				_skill_r2_fired = true
+
+		# ── R2 Skill MAGE: fireball grande ────────────────────────────────────
+		GameConfig.EnemyClass.MAGE:
+			velocity.x = 0.0
+			if _state_timer >= ATTACK_ACTIVE_START and not _skill_r2_fired:
+				_spawn_r2_mage_fireball()
+				_skill_r2_fired = true
+
+		# ── R2 Skill TANK: el taunt se gestiona via timer en _physics_process ─
+		GameConfig.EnemyClass.TANK:
+			velocity.x = 0.0
+			if _state_timer >= r2_duration and not _skill_r2_fired:
+				_skill_r2_fired = true  # el taunt YA fue activado en enter
+
+	# Salir del estado por timer (excepto melee que sale por posición).
+	if enemy_class != GameConfig.EnemyClass.MELEE and _state_timer >= r2_duration:
+		_finish_r2_skill()
+
+
+## Termina el ciclo R2 skill: resetea cooldown y vuelve a RECOVERY.
+func _finish_r2_skill() -> void:
+	hitbox.set_active(false)
+	_skill_r2_fired = false
+	var r2_data: Dictionary = R2_SKILL_TABLE.get(enemy_class, {})
+	_skill_r2_cooldown = randf_range(r2_data.get("cd_min", 7.0), r2_data.get("cd_max", 9.0))
+	# Restaurar daño normal si clase melee o mage lo modificó.
+	if enemy_class == GameConfig.EnemyClass.MELEE or enemy_class == GameConfig.EnemyClass.MAGE:
+		hitbox.damage = GameConfig.enemy_damage_with_rarity(enemy_class, rarity)
+	_change_state(State.RECOVERY)
+
+
+## ── R2 Skill ARCHER: 3 flechas en spread vertical ±15° ──────────────────────
+func _spawn_r2_archer_burst() -> void:
+	if projectile_scene == null or _target == null:
+		return
+	var aim_point: Vector2 = _target.global_position + Vector2(0, -30)
+	var base_dir: Vector2 = (aim_point - (global_position + Vector2(0, -30))).normalized()
+	# 3 flechas: central + ±15° spread vertical.
+	var angles_deg: Array[float] = [0.0, -15.0, 15.0]
+	for angle_deg in angles_deg:
+		var proj_node: Node2D = projectile_scene.instantiate()
+		if not proj_node is Projectile:
+			proj_node.queue_free()
+			continue
+		var proj: Projectile = proj_node
+		proj.global_position = global_position + Vector2(0, -30)
+		# Rotar la dirección base en el eje vertical (spread vertical = cambio en Y, no rotación 2D).
+		# Para spread vertical: desplazar la Y del target según el ángulo.
+		var spread_dir: Vector2 = base_dir.rotated(deg_to_rad(angle_deg))
+		proj.launch(spread_dir, hitbox.damage, team, element)
+		get_tree().current_scene.add_child(proj)
+
+
+## ── R2 Skill MAGE: fireball grande (hitbox ×1.8, daño ×SKILL_DAMAGE_MULT) ───
+func _spawn_r2_mage_fireball() -> void:
+	if projectile_scene == null or _target == null:
+		return
+	var proj_node: Node2D = projectile_scene.instantiate()
+	if not proj_node is Projectile:
+		proj_node.queue_free()
+		return
+	var proj: Projectile = proj_node
+	proj.global_position = global_position + Vector2(0, -30)
+	var aim_point: Vector2 = _target.global_position + Vector2(0, -30)
+	var direction: Vector2 = (aim_point - proj.global_position).normalized()
+	# Escalar visual y hitbox del fireball: tamaño ×1.8.
+	proj.scale = Vector2(1.8, 1.8)
+	# Daño ya fue aumentado en enter (SKILL_DAMAGE_MULT).
+	proj.launch(direction, hitbox.damage, team, element)
+	get_tree().current_scene.add_child(proj)
+
+
+## ── R2 Skill MELEE: knockback al player si quedó dentro de rango tras el dash ─
+func _apply_r2_melee_knockback() -> void:
+	if _target == null:
+		return
+	var dist: float = global_position.distance_to(_target.global_position)
+	# Solo aplicar si el player está cerca (el dash lo alcanzó).
+	if dist > attack_range * 1.5:
+		return
+	# Empujar al player en la dirección opuesta al facing del enemy.
+	var knockback_dir: float = float(current_facing)
+	if _target.has_method("apply_external_velocity"):
+		_target.apply_external_velocity(Vector2(knockback_dir * R2_MELEE_KNOCKBACK * 12.0, -80.0))
+	# VFX slash trail: Line2D rápida que se desvanece.
+	_spawn_melee_slash_trail()
+
+
+## Slash trail visual del dash melee R2. Line2D que se desvanece con tween.
+func _spawn_melee_slash_trail() -> void:
+	var line: Line2D = Line2D.new()
+	line.width = 4.0
+	line.default_color = Color(1.0, 0.8, 0.4, 0.9)
+	# Trazar el rastro desde la posición inicial del dash hasta la actual.
+	var start: Vector2 = Vector2(-current_facing * R2_MELEE_DASH_DISTANCE, -30)
+	var end: Vector2 = Vector2(0, -30)
+	line.add_point(start)
+	line.add_point(end)
+	line.z_index = 2
+	add_child(line)
+	# Fade-out en 0.3s y luego limpiar.
+	var tween: Tween = create_tween()
+	tween.tween_property(line, "modulate:a", 0.0, 0.3)
+	tween.tween_callback(line.queue_free)
+
+
+## ── R2 Skill TANK: Taunt ─────────────────────────────────────────────────────
+
+## Inicia el taunt: activa aura naranja, detecta aliados cercanos y los registra.
+func _start_taunt() -> void:
+	if _taunt_active:
+		return
+	_taunt_active = true
+	_taunt_timer = R2_TANK_TAUNT_DURATION
+	_taunt_soakers = []
+
+	# Detectar enemies aliados (mismo team) dentro del radio R2_TANK_TAUNT_RADIUS.
+	# El tank actúa de "soaker": recibe R2_TANK_TAUNT_REDIRECT del daño de sus aliados.
+	var all_enemies: Array = get_tree().get_nodes_in_group("enemy")
+	for e in all_enemies:
+		if e == self:
+			continue
+		if not e is Node2D:
+			continue
+		var e_node: Node2D = e as Node2D
+		if global_position.distance_to(e_node.global_position) <= R2_TANK_TAUNT_RADIUS:
+			# Registrar al tank como soaker en el hurtbox del aliado.
+			var ally_hurtbox: HurtboxComponent = e_node.get_node_or_null("Hurtbox") as HurtboxComponent
+			if ally_hurtbox != null:
+				ally_hurtbox.taunt_soaker = self
+				_taunt_soakers.append(e_node)
+
+	# VFX: aura naranja sobre el tank.
+	_spawn_taunt_aura()
+	# Líneas conectando a aliados protegidos.
+	_create_taunt_lines()
+	# Marker pulsante "PROVOCADO" arriba de la cabeza del tank.
+	_spawn_taunt_marker()
+	# Flash rojo de pantalla — el player no puede ignorarlo.
+	_spawn_taunt_screen_flash()
+	# TAUNT MMO real: arrastrar al player hacia el tank. Override de input.
+	# Decisión Leo: feel "roto" pero necesario para que el taunt cumpla su rol.
+	var player_node: Node = get_tree().get_first_node_in_group("player")
+	if player_node != null and player_node.has_method("set_taunt_source"):
+		player_node.set_taunt_source(self)
+
+
+## Desactiva el taunt: limpia soakers, aura y líneas.
+func _end_taunt() -> void:
+	_taunt_active = false
+	_taunt_timer = 0.0
+
+	# Quitar referencia del soaker en todos los aliados.
+	for e in _taunt_soakers:
+		if is_instance_valid(e):
+			var ally_hurtbox: HurtboxComponent = e.get_node_or_null("Hurtbox") as HurtboxComponent
+			if ally_hurtbox != null:
+				ally_hurtbox.taunt_soaker = null
+	_taunt_soakers.clear()
+
+	# Limpiar aura.
+	var aura: Node = get_node_or_null("TauntAura")
+	if aura != null:
+		aura.queue_free()
+
+	# Limpiar marker pulsante "PROVOCADO".
+	var marker: Node = get_node_or_null("TauntMarker")
+	if marker != null:
+		marker.queue_free()
+
+	# Liberar al player del taunt (vuelve a controlar movimiento + facing normal).
+	var player_node: Node = get_tree().get_first_node_in_group("player")
+	if player_node != null and player_node.has_method("set_taunt_source"):
+		player_node.set_taunt_source(null)
+
+	# Restaurar tinte normal del sprite (revertir el modulate naranja del taunt).
+	if sprite != null:
+		sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
+
+	# Limpiar líneas.
+	for line in _taunt_lines:
+		if is_instance_valid(line):
+			line.queue_free()
+	_taunt_lines.clear()
+
+
+## Spawna aura naranja sobre el tank durante el taunt.
+## Buff visual 26/05: amount 6→18, sphere_radius 25→38, lifetime 1.0→1.5, scale_max 1.0→1.5.
+## Pluss tinta naranja sobre el sprite del tank durante el taunt (modulate cambia
+## en _physics_process via _update_taunt_visual_pulse).
+func _spawn_taunt_aura() -> void:
+	var old: Node = get_node_or_null("TauntAura")
+	if old != null:
+		old.queue_free()
+
+	var aura: GPUParticles2D = GPUParticles2D.new()
+	aura.name = "TauntAura"
+	aura.position = Vector2(0, -40)
+	aura.amount = 18
+	aura.lifetime = 1.5
+	aura.preprocess = 0.3
+	aura.explosiveness = 0.0
+	aura.z_index = 2
+
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 38.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 60.0
+	mat.gravity = Vector3(0, -20, 0)
+	mat.initial_velocity_min = 20.0
+	mat.initial_velocity_max = 45.0
+	mat.scale_min = 0.5
+	mat.scale_max = 1.5
+
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(1.0, 0.6, 0.05, 1.0))
+	grad.set_color(1, Color(1.0, 0.25, 0.0, 0.0))
+	var grad_tex: GradientTexture1D = GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+
+	aura.process_material = mat
+	aura.emitting = true
+	add_child(aura)
+
+	# Tinte naranja sobre el sprite del tank — refuerza visibilidad.
+	if sprite != null:
+		sprite.modulate = Color(1.3, 0.85, 0.7, 1.0)
+
+
+## Marker pulsante "PROVOCADO" sobre la cabeza del tank. Visible para que el player
+## NO pueda ignorar que hay un tank activo en taunt.
+func _spawn_taunt_marker() -> void:
+	var old: Node = get_node_or_null("TauntMarker")
+	if old != null:
+		old.queue_free()
+
+	# Contenedor Node2D para poder tweenar scale sin afectar al tank.
+	var marker: Node2D = Node2D.new()
+	marker.name = "TauntMarker"
+	marker.position = Vector2(0, -110)  # arriba de la cabeza del tank
+	marker.z_index = 5
+
+	# Glow rojo translúcido (círculo grande detrás del ícono).
+	var glow: ColorRect = ColorRect.new()
+	glow.color = Color(1.0, 0.15, 0.1, 0.55)
+	glow.size = Vector2(36, 36)
+	glow.position = Vector2(-18, -18)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marker.add_child(glow)
+
+	# Ícono "!" — Label grande rojo brillante con outline blanco.
+	var icon: Label = Label.new()
+	icon.text = "!"
+	icon.add_theme_color_override("font_color", Color(1.0, 0.95, 0.85, 1.0))
+	icon.add_theme_color_override("font_outline_color", Color(0.9, 0.05, 0.05, 1.0))
+	icon.add_theme_constant_override("outline_size", 6)
+	icon.add_theme_font_size_override("font_size", 36)
+	icon.size = Vector2(24, 36)
+	icon.position = Vector2(-12, -22)
+	icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marker.add_child(icon)
+
+	add_child(marker)
+
+	# Tween de pulse continuo durante la duración del taunt.
+	# scale 1.0 → 1.35 → 1.0, ciclo ~0.5s.
+	var tween: Tween = create_tween().set_loops()
+	tween.tween_property(marker, "scale", Vector2(1.35, 1.35), 0.25) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(marker, "scale", Vector2(1.0, 1.0), 0.25) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+## Flash rojo de pantalla — overlay corto al iniciar el taunt. Imposible de ignorar.
+## Self-contained: crea CanvasLayer + ColorRect + Tween auto-destructivo.
+func _spawn_taunt_screen_flash() -> void:
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		return
+	var canvas: CanvasLayer = CanvasLayer.new()
+	canvas.name = "TauntScreenFlash"
+	canvas.layer = 50  # encima del HUD pero compatible
+	var rect: ColorRect = ColorRect.new()
+	rect.color = Color(1.0, 0.1, 0.1, 0.0)
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(rect)
+	scene_root.add_child(canvas)
+
+	# Fade in rápido a alpha 0.35 → fade out a 0.0 → auto-free.
+	var tween: Tween = create_tween()
+	tween.tween_property(rect, "color", Color(1.0, 0.1, 0.1, 0.35), 0.06)
+	tween.tween_property(rect, "color", Color(1.0, 0.1, 0.1, 0.0), 0.20)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(canvas):
+			canvas.queue_free()
+	)
+
+
+## Crea Line2D por aliado protegido. Muestra visualmente qué enemies están bajo taunt.
+func _create_taunt_lines() -> void:
+	for line in _taunt_lines:
+		if is_instance_valid(line):
+			line.queue_free()
+	_taunt_lines.clear()
+
+	for e in _taunt_soakers:
+		if not is_instance_valid(e):
+			continue
+		var line: Line2D = Line2D.new()
+		line.width = 4.0
+		line.default_color = Color(1.0, 0.55, 0.0, 0.9)
+		line.add_point(Vector2.ZERO)  # posición del tank (relativa)
+		line.add_point(Vector2.ZERO)  # posición del aliado (se actualiza en _update_taunt_lines)
+		line.z_index = 0
+		get_tree().current_scene.add_child(line)
+		_taunt_lines.append(line)
+
+
+## Actualiza posiciones globales de las líneas del taunt (llamada en _physics_process).
+func _update_taunt_lines() -> void:
+	for i in range(min(_taunt_lines.size(), _taunt_soakers.size())):
+		var line: Line2D = _taunt_lines[i]
+		var ally: Node2D = _taunt_soakers[i]
+		if not is_instance_valid(line) or not is_instance_valid(ally):
+			continue
+		# Line2D en la escena raíz: puntos en coordenadas globales.
+		line.set_point_position(0, global_position + Vector2(0, -40))
+		line.set_point_position(1, ally.global_position + Vector2(0, -30))
+
+
+# ─── Fin R2 Skills ────────────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ─── R3 Guerrero: Sed de Sangre ───────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+## VFX de telegrafía: aura roja pulsante + partículas mientras el guerrero "carga" el buff.
+func _spawn_sed_de_sangre_telegraph_vfx() -> void:
+	var old: Node = get_node_or_null("SedDeSangreTelegraphVFX")
+	if old != null:
+		old.queue_free()
+
+	var particles: GPUParticles2D = GPUParticles2D.new()
+	particles.name = "SedDeSangreTelegraphVFX"
+	particles.amount = 6
+	particles.lifetime = 0.4
+	particles.preprocess = 0.0
+	particles.explosiveness = 0.4
+	particles.z_index = 2
+	particles.position = Vector2(0, -40)
+
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 20.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 80.0
+	mat.gravity = Vector3(0, -30, 0)
+	mat.initial_velocity_min = 25.0
+	mat.initial_velocity_max = 60.0
+	mat.scale_min = 0.5
+	mat.scale_max = 1.3
+
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(0.95, 0.1, 0.1, 1.0))   # rojo intenso
+	grad.set_color(1, Color(1.0, 0.4, 0.0, 0.0))     # fade a naranja transparente
+	var grad_tex: GradientTexture1D = GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+
+	particles.process_material = mat
+	particles.emitting = true
+	add_child(particles)
+
+
+## Activa el buff: +20% speed y +20% atk speed (recovery más corto).
+## Aplica tinte rojizo al sprite para feedback visual durante los 5s.
+func _activate_sed_de_sangre() -> void:
+	_r3_buff_timer = R3_BUFF_DURATION
+	# Multiplicar speed.
+	speed *= R3_BUFF_SPEED_MULT
+	# Tinte rojizo sobre el sprite del enemy.
+	sprite.modulate = Color(1.5, 0.75, 0.75, 1.0)
+	# Aura roja persistente durante el buff.
+	_spawn_sed_de_sangre_buff_aura()
+	# Limpiar VFX de telegrafía (ya cumplió su función).
+	var tele_vfx: Node = get_node_or_null("SedDeSangreTelegraphVFX")
+	if tele_vfx != null:
+		tele_vfx.queue_free()
+
+
+## Desactiva el buff al expirar: revierte speed y tinte.
+func _end_sed_de_sangre() -> void:
+	# Revertir speed (dividir por el multiplicador para volver al valor original).
+	speed /= R3_BUFF_SPEED_MULT
+	# Restaurar tinte al color de rareza original.
+	sprite.modulate = Color.WHITE
+	# Apagar aura del buff.
+	var aura: Node = get_node_or_null("SedDeSangreBuffAura")
+	if aura != null:
+		aura.queue_free()
+
+
+## Aura roja persistente mientras el buff está activo.
+func _spawn_sed_de_sangre_buff_aura() -> void:
+	var old: Node = get_node_or_null("SedDeSangreBuffAura")
+	if old != null:
+		old.queue_free()
+
+	var aura: GPUParticles2D = GPUParticles2D.new()
+	aura.name = "SedDeSangreBuffAura"
+	aura.position = Vector2(0, -35)
+	aura.amount = 6
+	aura.lifetime = 0.8
+	aura.preprocess = 0.2
+	aura.explosiveness = 0.0
+	aura.z_index = 1
+
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 16.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 35.0
+	mat.gravity = Vector3(0, -20, 0)
+	mat.initial_velocity_min = 12.0
+	mat.initial_velocity_max = 28.0
+	mat.scale_min = 0.3
+	mat.scale_max = 0.8
+
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(1.0, 0.15, 0.15, 0.8))
+	grad.set_color(1, Color(0.9, 0.1, 0.0, 0.0))
+	var grad_tex: GradientTexture1D = GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+
+	aura.process_material = mat
+	aura.emitting = true
+	add_child(aura)
+
+# ─── Fin R3 Guerrero: Sed de Sangre ──────────────────────────────────────────
 
 func _dbg(tag: String, msg: String) -> void:
 	# Helper de print con tag consistente. Solo se llama desde DEBUG_ENABLED branches.

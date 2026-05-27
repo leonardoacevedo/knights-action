@@ -39,7 +39,12 @@
       "Bash(godot --headless --script \"res://tests/systems/player_stats_component_test.gd\")",
       "PowerShell($exe = \"C:\\\\Users\\\\laace\\\\AppData\\\\Local\\\\Temp\\\\b665e496-99e7-4954-91fe-475ca337ec18_Godot_v4.6.3-stable_win64.exe.zip.c18\\\\Godot_v4.6.3-stable_win64.exe\"; & $exe --headless --path \"C:\\\\Users\\\\laace\\\\OneDrive\\\\Documentos\\\\knights-action\" --script \"res://tests/systems/player_stats_component_test.gd\")",
       "Bash(not exist *)",
-      "Bash(godot --headless --script res://tests/systems/save_system_test.gd)"
+      "Bash(godot --headless --script res://tests/systems/save_system_test.gd)",
+      "Bash(\"C:\\\\Users\\\\laace\\\\AppData\\\\Local\\\\Programs\\\\Godot\\\\Godot_v4.4.1-stable_win64.exe\" --headless --check-only)",
+      "Bash(where godot *)",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\laace' -Filter '*odot*' -Recurse -ErrorAction SilentlyContinue -Depth 3 | Select-Object FullName\")",
+      "Bash(\"C:\\\\Users\\\\laace\\\\AppData\\\\Local\\\\Programs\\\\Godot\\\\Godot_v4.6-dev5_win64.exe\" --headless --editor --quit)",
+      "Bash(Select-String -Pattern \"ERROR|SCRIPT ERROR|Parse Error|hud_combat\")"
     ]
   }
 }

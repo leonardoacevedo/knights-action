@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Knights Action"
-run/main_scene="uid://em5mwc6vrm2l"
+run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -30,6 +30,7 @@ PlayerProgression="*res://scripts/systems/player_progression.gd"
 ExperienceSystem="*res://scripts/systems/experience_system.gd"
 SetBonusSystem="*res://scripts/systems/set_bonus_system.gd"
 GoldSystem="*res://scripts/systems/gold_system.gd"
+TestArenaConfig="*res://scripts/systems/test_arena_config.gd"
 SaveSystem="*res://scripts/systems/save_system.gd"
 
 [input]

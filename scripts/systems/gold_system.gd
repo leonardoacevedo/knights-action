@@ -116,6 +116,9 @@ func _on_enemy_died(enemy: Node) -> void:
 	_enemy_gold.erase(enemy)
 	if base_gold <= 0:
 		return
+	# Modo prueba: no acumular Oro, el run es de testing.
+	if TestArenaConfig.is_test_mode:
+		return
 	# Multiplicador de Momentum: Oro sí escala (es recompensa de farmeo).
 	# Fórmula: gold_final = base × (1 + 0.1 × momentum). Cap momentum=10 → ×2.
 	var momentum: int = MomentumSystem.current_level

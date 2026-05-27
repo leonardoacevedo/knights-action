@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="DropTable" format=3 uid="uid://dt_boss_duelista_items"]
+
+[ext_resource type="Script" path="res://scripts/data/drop_table.gd" id="1_dttable"]
+[ext_resource type="Script" path="res://scripts/data/drop_entry.gd" id="2_dtentry"]
+[ext_resource type="Resource" path="res://resources/items/weapons/espada_runica.tres" id="3_espada_runica"]
+[ext_resource type="Resource" path="res://resources/items/armor/peto_brasas.tres" id="4_peto_brasas"]
+[ext_resource type="Resource" path="res://resources/items/shields/aegis_igneo.tres" id="5_aegis_igneo"]
+[ext_resource type="Resource" path="res://resources/items/weapons/martillo_guardian.tres" id="6_martillo_guardian"]
+
+[sub_resource type="Resource" id="Entry_duel_espada"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("3_espada_runica")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.45
+
+[sub_resource type="Resource" id="Entry_duel_peto"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("4_peto_brasas")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.30
+
+[sub_resource type="Resource" id="Entry_duel_aegis"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("5_aegis_igneo")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.25
+
+[sub_resource type="Resource" id="Entry_duel_r4"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("6_martillo_guardian")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.05
+
+[resource]
+script = ExtResource("1_dttable")
+entries = Array[ExtResource("2_dtentry")]([SubResource("Entry_duel_espada"), SubResource("Entry_duel_peto"), SubResource("Entry_duel_aegis"), SubResource("Entry_duel_r4")])

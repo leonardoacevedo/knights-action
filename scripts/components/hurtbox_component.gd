@@ -41,12 +41,20 @@ var scene_root: Node = null
 ## Usar valores de ItemData.Element: NEUTRO=0, FUEGO=1, AGUA=2, TIERRA=3.
 @export_enum("Neutro:0", "Fuego:1", "Agua:2", "Tierra:3") var element: int = 0
 
+## Referencia al tank R2 que está absorbiendo el 100% del daño recibido (Taunt skill MMO clásico).
+## Null cuando no hay taunt activo. Seteado por Enemy._start_taunt() y limpiado en _end_taunt().
+## El tank destino debe tener un HurtboxComponent válido para recibir el daño redirigido.
+## Cambio 27/05: redirect 0.3 → 1.0 (taunt real, no buff defensivo).
+var taunt_soaker: Node2D = null
+
 func _ready() -> void:
 	# Layer 5 = Hurtbox. Mask 4 = detecta Hitbox.
 	collision_layer = 0b10000    # bit 5
 	collision_mask = 0b1000      # bit 4
 	monitoring = false           # nosotros no buscamos, ellos nos encuentran
 	monitorable = true
+	# Grupo para búsqueda por AoE radial (Projectile._apply_aoe_damage, skills AoE futuras).
+	add_to_group("hurtbox")
 
 
 ## source puede ser null cuando el daño viene de un Projectile (no Hitbox).
@@ -71,6 +79,31 @@ func receive_hit(amount: int, source: HitboxComponent = null, was_advantage: int
 		return  # daño esquivado — no se aplica
 	# Defensa flat reduce daño. Mínimo garantizado: 1. Fórmula: formulas.md §Equipamiento.
 	var mitigated: int = max(1, amount - flat_defense)
+
+	# TAUNT MMO clásico: si hay tank con taunt activo, redirigir 100% del daño al tank.
+	# El aliado parpadea visualmente pero NO recibe HP. El tank recibe daño completo
+	# con damage floater encima para que el player VEA dónde van sus golpes.
+	if taunt_soaker != null and is_instance_valid(taunt_soaker):
+		var soaker_hurtbox: HurtboxComponent = taunt_soaker.get_node_or_null("Hurtbox") as HurtboxComponent
+		if soaker_hurtbox != null and soaker_hurtbox.health_component != null:
+			# 100% redirect — aliado no recibe daño.
+			soaker_hurtbox.health_component.take_damage(mitigated)
+			# Damage floater grande sobre el tank (recompensa visual de "pegándole al tank").
+			if scene_root != null:
+				DamageFloater.spawn_text(scene_root, taunt_soaker.global_position + Vector2(0, -90), \
+					"-%d" % mitigated, Color(1.0, 0.55, 0.0, 1.0))
+			# Flash blanco en el aliado para indicar "el golpe no entró".
+			var ally_owner: Node = health_component.get_parent()
+			var ally_sprite: Node = ally_owner.get_node_or_null("StickFigure") if ally_owner != null else null
+			if ally_sprite != null and ally_sprite is CanvasItem:
+				var canvas: CanvasItem = ally_sprite as CanvasItem
+				var tween: Tween = create_tween()
+				tween.tween_property(canvas, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.05)
+				tween.tween_property(canvas, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.10)
+			# Emit hit_received con amount=0 para que feedback de UI no se confunda.
+			hit_received.emit(0, source, was_advantage)
+			return
+
 	health_component.take_damage(mitigated)
 	hit_received.emit(mitigated, source, was_advantage)
 

@@ -100,6 +100,47 @@ layout_mode = 2
 mouse_filter = 2
 script = ExtResource("2_shield_charges")
 
+[node name="GoldRow" type="HBoxContainer" parent="StatsContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="GoldIcon" type="ColorRect" parent="StatsContainer/GoldRow"]
+custom_minimum_size = Vector2(16, 16)
+layout_mode = 2
+color = Color(1.0, 0.85, 0.2, 1.0)
+
+[node name="GoldLabel" type="Label" parent="StatsContainer/GoldRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.0, 0.85, 0.2, 1.0)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 14
+text = "Oro: 0"
+vertical_alignment = 1
+
+[node name="SetBonusRow" type="HBoxContainer" parent="StatsContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+visible = false
+
+[node name="SetBonusBG" type="ColorRect" parent="StatsContainer/SetBonusRow"]
+custom_minimum_size = Vector2(160, 20)
+layout_mode = 2
+color = Color(0.6, 0.1, 0.1, 0.45)
+
+[node name="SetBonusLabel" type="Label" parent="StatsContainer/SetBonusRow/SetBonusBG"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 13
+text = "FUEGO 2pc"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="MaterialToastContainer" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 1

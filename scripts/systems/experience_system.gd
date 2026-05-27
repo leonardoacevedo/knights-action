@@ -54,6 +54,9 @@ func _on_enemy_died(enemy: Node) -> void:
 	# Limpiar antes de otorgar (defensivo: si add_xp emite señales síncronas
 	# que referencian este dict, ya está limpio).
 	_enemy_xp.erase(enemy)
+	# Modo prueba: no acumular XP, el run es de testing.
+	if TestArenaConfig.is_test_mode:
+		return
 	if xp > 0:
 		PlayerProgression.add_xp(xp)
 
