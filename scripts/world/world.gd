@@ -91,13 +91,35 @@ const ZONA_SKILL_VARIANTS: Dictionary = {
 @onready var _background: TextureRect = $Background
 @onready var _decorations: Node2D = $Decorations
 @onready var _bg_sprite: Sprite2D = $ParallaxBackground/LayerBG/BGSprite
+@onready var _mid_sprite: Sprite2D = $ParallaxBackground/LayerMid/MidSprite
+@onready var _fore_top_sprite: Sprite2D = $ParallaxBackground/LayerForeTop/ForeTopSprite
+@onready var _fore_bottom_sprite: Sprite2D = $ParallaxBackground/LayerForeBottom/ForeBottomSprite
 
 ## Texturas de background por stage (Opción A simple — swap por stage_index).
-## BG-A = stages 1-2 (amanecer), BG-B = stages 3-4 (mediodía), BG-C = stage 5 + boss (atardecer).
+## BG = cielo (capa más lejana), MID = ruinas/bosque, FORE = ramas/hierba en primer plano.
+## Sub-zonas zona 1: a=stages 1-2 (ruinas abiertas, amanecer), b=stages 3-4 (bosque, mediodía),
+## c=stage 5 + boss (bosque profundo, atardecer).
 const BG_TEXTURES: Dictionary = {
 	"a": preload("res://assets/art/zona1/backgrounds/bg_valle_bga_amanecer_1920x1080.png"),
 	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_bgb_mediodia_1920x1080.png"),
 	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_bgc_atardecer_1920x1080.png"),
+}
+const MID_TEXTURES: Dictionary = {
+	"a": preload("res://assets/art/zona1/backgrounds/bg_valle_mida_ruinas_1920x1080.png"),
+	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1920x1080.png"),
+	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1920x1080.png"),
+}
+## ForeTop = ramas colgantes arriba. Solo aparecen en sub-zonas con bosque (b y c).
+## En sub-zona "a" (ruinas abiertas) ocultamos la capa — visible toggle.
+const FORE_TOP_TEXTURES: Dictionary = {
+	"a": null,
+	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1920x1080.png"),
+	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1920x1080.png"),
+}
+const FORE_BOTTOM_TEXTURES: Dictionary = {
+	"a": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1920x1080.png"),
+	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1920x1080.png"),
+	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1920x1080.png"),
 }
 
 ## Plataformas default del .tscn — escondidas cuando un stage tiene overrides.
@@ -348,29 +370,52 @@ func _clear_projectiles() -> void:
 			child.queue_free()
 
 
+## Aplica tint multiplicativo a TODAS las capas parallax (cielo + mid + foretop + forebottom).
+## Antes solo tocaba el cielo: visualmente las capas mid/fore tapaban el cambio y se sentía
+## estático. Ahora el ambient_tint del StageData impacta toda la composición.
 func _apply_ambient_tint(tint: Color) -> void:
-	# Tinte multiplicativo aplicado al BG parallax (no al TextureRect viejo).
-	if _bg_sprite == null:
-		return
-	var tween: Tween = create_tween()
-	tween.tween_property(_bg_sprite, "modulate", tint, 0.6)
+	var sprites: Array[Sprite2D] = [_bg_sprite, _mid_sprite, _fore_top_sprite, _fore_bottom_sprite]
+	for s: Sprite2D in sprites:
+		if s == null:
+			continue
+		var tween: Tween = create_tween()
+		tween.tween_property(s, "modulate", tint, 0.6)
 
 
-## Swap de la textura del LayerBG según el stage_index. GDD §7.1 Valle de los Ecos:
-## stages 1-2 = amanecer (BG-A), 3-4 = mediodía (BG-B), 5+boss = atardecer (BG-C).
-func _apply_background_for_stage(stage_index: int) -> void:
-	if _bg_sprite == null:
-		return
-	var key: String
+## Devuelve la sub-zona ("a"/"b"/"c") según stage_index. GDD §7.1 Valle de los Ecos:
+## stages 1-2 = ruinas amanecer, 3-4 = bosque mediodía, 5+boss = bosque profundo atardecer.
+func _zone_key_for_stage(stage_index: int) -> String:
 	if stage_index <= 2:
-		key = "a"
+		return "a"
 	elif stage_index <= 4:
-		key = "b"
-	else:
-		key = "c"
-	var tex: Texture2D = BG_TEXTURES.get(key, null) as Texture2D
-	if tex != null:
-		_bg_sprite.texture = tex
+		return "b"
+	return "c"
+
+
+## Swap de las 4 capas parallax según el stage_index. Antes solo cambiaba el cielo
+## (LayerBG); como mid/fore son más visibles y tapaban el cambio, daba sensación de
+## fondo estático. Ahora rota también mid (ruinas→bosque) + foretop (oculto en
+## ruinas, ramas en bosque) + forebottom (hierba siempre, pero queda preparado
+## para variantes futuras).
+func _apply_background_for_stage(stage_index: int) -> void:
+	var key: String = _zone_key_for_stage(stage_index)
+	if _bg_sprite != null:
+		var bg_tex: Texture2D = BG_TEXTURES.get(key, null) as Texture2D
+		if bg_tex != null:
+			_bg_sprite.texture = bg_tex
+	if _mid_sprite != null:
+		var mid_tex: Texture2D = MID_TEXTURES.get(key, null) as Texture2D
+		if mid_tex != null:
+			_mid_sprite.texture = mid_tex
+	if _fore_top_sprite != null:
+		var ft_tex: Texture2D = FORE_TOP_TEXTURES.get(key, null) as Texture2D
+		# ForeTop puede ser null intencional (sub-zona "a" sin ramas).
+		_fore_top_sprite.texture = ft_tex
+		_fore_top_sprite.visible = ft_tex != null
+	if _fore_bottom_sprite != null:
+		var fb_tex: Texture2D = FORE_BOTTOM_TEXTURES.get(key, null) as Texture2D
+		if fb_tex != null:
+			_fore_bottom_sprite.texture = fb_tex
 
 
 ## Aplica todo lo visual de la stage: BG textura + tint + plataformas + decoraciones.

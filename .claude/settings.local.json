@@ -44,7 +44,8 @@
       "Bash(where godot *)",
       "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\laace' -Filter '*odot*' -Recurse -ErrorAction SilentlyContinue -Depth 3 | Select-Object FullName\")",
       "Bash(\"C:\\\\Users\\\\laace\\\\AppData\\\\Local\\\\Programs\\\\Godot\\\\Godot_v4.6-dev5_win64.exe\" --headless --editor --quit)",
-      "Bash(Select-String -Pattern \"ERROR|SCRIPT ERROR|Parse Error|hud_combat\")"
+      "Bash(Select-String -Pattern \"ERROR|SCRIPT ERROR|Parse Error|hud_combat\")",
+      "Bash(python -c \"from PIL import Image; import os; [print\\(f, Image.open\\(f\\).size, Image.open\\(f\\).mode\\) for f in os.listdir\\('.'\\) if f.endswith\\('.png'\\)]\")"
     ]
   }
 }
