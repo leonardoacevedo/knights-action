@@ -31,8 +31,8 @@ class_name World
 @export var spawn_x_min: float = -700.0
 @export var spawn_x_max: float = 700.0
 
-## Y de spawn. Default -50 = sobre el suelo.
-@export var spawn_y: float = -50.0
+## Y de spawn. Default -20 = sobre el suelo.
+@export var spawn_y: float = -20.0
 
 ## Distancia mínima al player para evitar spawn pegado al spawn point.
 @export var min_distance_from_player: float = 250.0
@@ -131,6 +131,56 @@ var _override_platforms: Array[Node2D] = []
 # ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 func _ready() -> void:
+# --- FIX BUG ASSETS BG (BLANCO A ALPHA) ---
+	var white_alpha_shader = preload("res://assets/shaders/white_to_alpha.gdshader")
+	var bg_material = ShaderMaterial.new()
+	bg_material.shader = white_alpha_shader
+	
+	if _mid_sprite != null:
+		_mid_sprite.material = bg_material
+	if _fore_top_sprite != null:
+		_fore_top_sprite.material = bg_material
+	if _fore_bottom_sprite != null:
+		_fore_bottom_sprite.material = bg_material
+	# ------------------------------------------
+
+# --- FIX ESCALA Y POSICIÓN DE BACKGROUNDS ---
+	# SE CAMBIÓ DE 0.6 A 1.0. Esto hará que el fondo se vea más grande y proporcional.
+	# El alto original (1080) ahora se mostrará a escala completa en tu ventana (648).
+	var custom_scale_bg := Vector2(0.6, 0.4)
+	var custom_scale_mid := Vector2(0.6, 0.4)
+	var custom_scale_fore_top := Vector2(0.56, 0.45)
+	var custom_scale_fore_bottom := Vector2(0.56, 0.4)
+
+	# Ajusta este valor en positivo para empujar el fondo hacia el piso.
+	# Si las raíces aún flotan, súbelo (ej. 200). Si se hunden mucho, bájalo (ej. 100).
+	var custom_offset_x_bg: float = 490.0
+	var custom_offset_y_bg: float = 250.0
+	var custom_offset_x_mid: float = 180.0
+	var custom_offset_y_mid: float = 300.0
+	var custom_offset_x_fore_top: float = 160.0
+	var custom_offset_y_fore_top: float = 160.0
+	var custom_offset_x_fore_bottom: float = 120.0
+	var custom_offset_y_fore_bottom: float = 350.0
+
+	if _bg_sprite != null:
+		_bg_sprite.scale = custom_scale_bg
+		_bg_sprite.position.x = custom_offset_x_bg
+		_bg_sprite.position.y = custom_offset_y_bg
+	if _mid_sprite != null:
+		_mid_sprite.scale = custom_scale_mid
+		_mid_sprite.position.x = custom_offset_x_mid
+		_mid_sprite.position.y = custom_offset_y_mid
+	if _fore_top_sprite != null:
+		_fore_top_sprite.scale = custom_scale_fore_top
+		_fore_top_sprite.position.x = custom_offset_x_fore_top
+		_fore_top_sprite.position.y = custom_offset_y_fore_top
+	if _fore_bottom_sprite != null:
+		_fore_bottom_sprite.scale = custom_scale_fore_bottom
+		_fore_bottom_sprite.position.x = custom_offset_x_fore_bottom
+		_fore_bottom_sprite.position.y = custom_offset_y_fore_bottom
+	# ---------------------------------------------
+
 	# Instanciar la loot card y agregarla al árbol.
 	# Se hace aquí (no en world.tscn) para evitar editar UIDs del .tscn a mano.
 	# La pantalla se conecta sola a DropSystem.items_dropped en su _ready.
