@@ -230,8 +230,9 @@ func _execute_gain_shield(data: PlayerSkillData) -> void:
 	if s == null:
 		return
 	var charges: int = int(data.params.get("charges", 2))
+	var duration: float = float(data.params.get("duration", 8.0))
 	if s.has_method("add_temporary_charges"):
-		s.add_temporary_charges(charges)
+		s.add_temporary_charges(charges, duration)
 	else:
 		s.restore_all()  # fallback defensivo
 
