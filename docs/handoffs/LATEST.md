@@ -1,209 +1,64 @@
-> **Origen:** [2026-05-27-1830-bug-assets-bg.md](2026-05-27-1830-bug-assets-bg.md) — Generado: 27 May 2026, 18:30 — Handoff corto post-consolidado 16:25
+> **Origen:** [2026-05-28-1724-fase3-cierre-logica.md](2026-05-28-1724-fase3-cierre-logica.md) — Generado: 28 May 2026, 17:24 — Cierre lógica Fase 3 + commit pusheado.
 
-# Handoff — 27 May 2026, 18:30 (Bug fixes + descubrimiento bug assets BG zona 1)
+# Handoff — 28 May 2026, 17:24 (Fase 3 cierre lógico + HUD redesign + lore Z2-4 + GDD v2.2)
 
-**Sesión corta post-consolidado 16:25.** Dos fixes de código + un descubrimiento crítico de assets que bloquea el efecto visual de parallax en zona 1.
-**Fase del proyecto:** 3 — Sistemas RPG Completos. Lógica ~95% cerrada. Bloqueador visual zona 1 identificado.
-**GDD versión vigente:** v2.1.
-**Generado por:** Claude (sesión corta antes de relevo por Gemini).
+**Sesión larga end-to-end.** 24 tasks completadas. Commit `da2b347` pusheado a `origin/main`. Fase 3 lógica ~99% cerrada.
 
----
-
-## 1. Resumen ejecutivo
-
-1. **Fix runtime crítico**: `PlayerSkillSystem._execute_gain_shield` llamaba `add_temporary_charges(charges)` con 1 arg pero firma exige `(amount, duration)`. Agregado `duration` desde params (default 8.0s, `escudo_magico.tres` ya lo trae). Línea 234.
-2. **Fix parcial parallax zona 1**: `world.gd` ahora rota las 4 capas (BG cielo + Mid + ForeTop + ForeBottom) según sub-zona a/b/c (stages 1-2 / 3-4 / 5+boss). Antes solo cambiaba LayerBG (cielo) y mid/fore estaban hardcoded en world.tscn. Ambient_tint extendido a las 4 capas (antes solo cielo).
-3. **🚨 BUG CRÍTICO DESCUBIERTO — assets BG zona 1 con fondo blanco opaco**: las 4 PNGs (`bg_valle_mida_ruinas`, `bg_valle_midb_bosque`, `bg_valle_forea_hierba`, `bg_valle_foreb_ramas`) NO tienen canal alpha real. Cada capa parallax tapa la de atrás con su rectángulo blanco. El cielo nunca asoma. El fix de código del punto 2 técnicamente funciona pero visualmente sigue viéndose plano por esta razón. Confirmado leyendo PNGs con Read tool.
+**Commit:** `da2b347` — 82 archivos, +6193 −114.
+**GDD versión vigente:** **v2.2** (sync 6 elementos canon).
 
 ---
 
-## 2. Cambios concretos sesión
+## Resumen ultra-corto
 
-### 2.1 `scripts/systems/player_skill_system.gd` línea 232-236
-
-```gdscript
-var charges: int = int(data.params.get("charges", 2))
-var duration: float = float(data.params.get("duration", 8.0))
-if s.has_method("add_temporary_charges"):
-    s.add_temporary_charges(charges, duration)
-else:
-    s.restore_all()
-```
-
-Validado: `resources/player_skills/escudo_magico.tres` ya trae `duration: 8.0` en params.
-
-### 2.2 `scripts/world/world.gd`
-
-**@onready vars nuevos:**
-```gdscript
-@onready var _mid_sprite: Sprite2D = $ParallaxBackground/LayerMid/MidSprite
-@onready var _fore_top_sprite: Sprite2D = $ParallaxBackground/LayerForeTop/ForeTopSprite
-@onready var _fore_bottom_sprite: Sprite2D = $ParallaxBackground/LayerForeBottom/ForeBottomSprite
-```
-
-**3 consts nuevas:** `MID_TEXTURES`, `FORE_TOP_TEXTURES`, `FORE_BOTTOM_TEXTURES`. Mapping:
-
-| Sub-zona | Stages | BG | MID | ForeTop | ForeBottom |
-|---|---|---|---|---|---|
-| a | 1-2 | bga_amanecer | mida_ruinas | **null** (oculto) | forea_hierba |
-| b | 3-4 | bgb_mediodia | midb_bosque | foreb_ramas | forea_hierba |
-| c | 5+boss | bgc_atardecer | midb_bosque | foreb_ramas | forea_hierba |
-
-**Helpers:**
-- `_zone_key_for_stage(stage_index) -> String` (extraído).
-- `_apply_background_for_stage` ahora rota las 4 capas. ForeTop tiene visible toggle por si la textura es null.
-- `_apply_ambient_tint` ahora aplica el tween a las 4 capas (antes solo `_bg_sprite`).
+1. **HUD redesign Fase 1-3** matching imagen referencia (PlayerAvatar + LevelBadge + StageLabel + EnemyInfo + chips). PortraitFactory autoload híbrido (PNG si existe, procedural).
+2. **BossFigure + EnemyFigure refactor** — bosses ya no son sticks. 7 armas signature procedurales. Mobs con accesorios por clase.
+3. **Hitbox swing honesto** — polígono rotado + scale por sprite. Espada=filo entero / Hammer=solo cabeza.
+4. **6 VFX status effects + 6 VFX player skills + grito visual Tank taunt.**
+5. **14 items elementales + 14 recetas + drop tables Z2/Z3/Z4** wireados.
+6. **Mini-boss Capitán de los Vientos** scene + Z4E3 spawn override + routing extendido.
+7. **9 archivos lore Z2/Z3/Z4** (mundo + bestiario + materiales).
+8. **GDD v2.2** sync §5.3 (6 elementos canon + dual triangle).
+9. **Backgrounds zona 1** reemplazados Gemini con alpha real.
+10. **Zone chaining 1→2→3→4** MODO HISTORIA.
 
 ---
 
-## 3. 🚨 Bug crítico assets — siguiente sesión PRIORIDAD 1
+## Decisiones Leo cerradas
 
-### 3.1 Descripción
-
-Las 4 PNGs de `assets/art/zona1/backgrounds/` que NO son del cielo (BG) fueron generadas con **fondo blanco sólido** en lugar de transparencia alpha:
-
-- `bg_valle_mida_ruinas_1920x1080.png` — ruinas con fondo blanco
-- `bg_valle_midb_bosque_1920x1080.png` — bosque con fondo blanco
-- `bg_valle_forea_hierba_1920x1080.png` — hierba+raíces con fondo blanco
-- `bg_valle_foreb_ramas_1920x1080.png` — ramas colgantes con fondo blanco
-
-Visual resultante (confirmado screenshot Leo): cielo blanco arriba, hojas verdes ocupando todo, sin sensación de profundidad. El BG (cielo amanecer/mediodía/atardecer) NUNCA se ve porque está tapado por el blanco de las capas frontales.
-
-### 3.2 Opciones de fix (Leo pendiente decisión — sesión actual sin tokens)
-
-**A) Shader white-to-alpha (5 min, fix visual inmediato):**
-
-Crear `assets/shaders/white_to_alpha.gdshader`:
-```gdshader
-shader_type canvas_item;
-uniform float threshold : hint_range(0.0, 1.0) = 0.95;
-uniform float softness : hint_range(0.0, 0.2) = 0.05;
-void fragment() {
-    vec4 c = texture(TEXTURE, UV);
-    float white = min(c.r, min(c.g, c.b));
-    float a = 1.0 - smoothstep(threshold - softness, threshold, white);
-    COLOR = vec4(c.rgb, c.a * a);
-}
-```
-
-Aplicar `material = ShaderMaterial(shader)` a `_mid_sprite`, `_fore_top_sprite`, `_fore_bottom_sprite` en `world.gd._ready()`. **Pros:** instantáneo, sin re-arte. **Contras:** posibles halos blanquecinos en bordes anti-aliased.
-
-**B) Regenerar 4 PNGs con alpha real (limpio, requiere ronda arte):**
-
-Invocar `art-prompt-engineer` para regenerar las 4 con prompts que especifiquen "PNG transparent background, isolated foliage on transparent canvas, no white background". Reemplazar en `assets/art/zona1/backgrounds/`. Mantener mismos filenames para no tocar referencias.
-
-**C) Híbrido recomendado:** A para playtest YA + B como backlog corto plazo.
-
-### 3.3 Por qué no aplicamos el fix esta sesión
-
-Leo prefirió generar handoff con poco budget de tokens restante en lugar de implementar shader. Próxima sesión (Gemini) puede ejecutar la opción A en ~5 min y testear in-game antes de decidir si B vale la pena.
+1. ✅ 6 elementos canon GDD §5.3 sync (RAYO descartado)
+2. ✅ HUD redesign: Furia / 6 botones (Atk grande) / portraits híbrido / stage+momentum / "25"=nivel
+3. ✅ Hitbox honesta arma + animado + todas entidades + hurtboxes ajustados
+4. ✅ Backgrounds Z1 mantener (BG grande, MID/FORE chicos con aspect)
+5. ✅ Lore Z2-4 mismo estilo "imperio caído + fragmentos preservados"
 
 ---
 
-## 4. Estado actual
+## Pendientes próxima sesión
 
-### 4.1 Decisiones pendientes Leo (sigue del handoff anterior + nuevo)
+**Bloqueado playtest:** validar feel HUD + bosses + hitbox arc + zone chaining + drops + mini-boss + smoke tests handoff 27/05.
 
-1. **[NUEVO] Fix bug assets BG zona 1** — elegir opción A, B o C (sección 3.2).
-2. GDD §5.3 sync 3→6 elementos (pendiente).
-3. Tests integration cosmic statuses.
-4. Lyss healing en proyectil reflejado.
-5. Tank skill variants zona 2/4.
-6. Drop tables zona 2/3 items dedicados.
-7. Tunear chances/cooldowns/damages post-playtest.
+**Bloqueado assets externos:** 12 prompts Gemini Z2/3/4 ready-to-paste / 11 portraits player+bosses+Capitán / audio pipeline / PNG weapons.
 
-### 4.2 Repo state
-
-- **Sucio masivo acumulado.** ~95 archivos del consolidado anterior + 2 archivos modificados esta sesión:
-  - `scripts/systems/player_skill_system.gd` (fix add_temporary_charges).
-  - `scripts/world/world.gd` (rotación 4 capas parallax).
-- **NO commiteado** (regla local Leo).
+**No bloqueado** (lógica cerrada):
+- UI loadout skills player (drag-and-drop)
+- Tree unlock skills decisión + impl
+- Tests integration cosmic statuses
+- Tank skill variants Z2/Z4
+- Sistema bestiario interactivo
+- Tutorial integrado
 
 ---
 
-## 5. Qué sigue (próxima sesión, Gemini)
+## Estado Fase 3 final
 
-### 5.1 PRIORIDAD 1 — Fix bug assets BG
+✅ Lógica ~99% cerrada (skills enemy R2/R3 + set bonuses + status effects + PlayerSkills + Momentum/Furia/Refinamiento/Crafteo/Drops + 4 bosses únicos + 14 items elementales + lore canon Z1-4 + GDD v2.2 + HUD Fase 1-3 + bosses/mobs visuales + hitbox honesto + mini-boss Capitán + zone chaining + bg alpha real)
 
-Aplicar opción A (shader white-to-alpha) descripta en §3.2. Test in-game zona 1 stage 1 → 5 → boss. Verificar:
+❌ Arte IA + audio + playtest validatorio + bestiario interactivo + tutorial
 
-- Cielo amanecer/mediodía/atardecer visible y cambia entre transiciones (stage 2→3, 4→5).
-- Mid (ruinas→bosque) cambia en transición stage 2→3.
-- ForeTop (ramas) aparece en stage 3 y se mantiene hasta boss.
-- ForeBottom (hierba+raíces) visible toda la run.
-- Ambient_tint del StageData se ve aplicado a TODAS las capas (no solo cielo).
-
-Si halos blancos en bordes son visibles y molestan → escalar a opción B (regenerar via art-prompt-engineer).
-
-### 5.2 Validación pendiente del consolidado anterior (no se ejecutó esta sesión)
-
-Ver §4.1 del handoff `2026-05-27-1625-completo.md`:
-- Tests headless en Godot 4.6 (6 suites).
-- Smoke tests in-game (zona 1, zona 2 skill variants, Lyss F2, Vael F2, SetBonus, PlayerSkills).
-
-### 5.3 Backlog lógico restante
-
-Mismo del consolidado §4.2 — no cambió.
-
-### 5.4 Backlog visual (TODAS las zonas)
-
-Mismo del consolidado §4.3 — no cambió. Pero **prioridad**: si la opción B se aplica para fix bug assets zona 1, los prompts deben pedirse con transparencia real explícita desde el inicio para zonas 2/3/4.
+**Criterio cierre Fase 3 (GDD §13):** *"Una zona completa jugable de principio a fin"* — falta solo arte + audio + playtest.
 
 ---
 
-## 6. Contexto necesario para próxima sesión
-
-### 6.1 Arquitectura parallax actual (world.tscn)
-
-```
-ParallaxBackground
-├── LayerBG (motion_scale 0.1) → BGSprite (cielo, alpha OK)
-├── LayerMid (motion_scale 0.4) → MidSprite (ruinas/bosque, fondo BLANCO BUG)
-├── LayerForeTop (motion_scale 0.7) → ForeTopSprite (ramas, fondo BLANCO BUG)
-├── LayerForeBottom (motion_scale 0.8) → ForeBottomSprite (hierba, fondo BLANCO BUG)
-├── LayerMountains (visible=false, polígonos)
-└── LayerFoliage (visible=false, polígonos)
-```
-
-El fix de código rota correctamente las texturas pero el bug de assets las hace verse como rectángulos blancos opacos.
-
-### 6.2 Naming convention assets (heredado, ojo)
-
-- `forea` = ForeBottom (hierba al piso). NO es "alternativa a foreb".
-- `foreb` = ForeTop (ramas arriba). NO es "alternativa a forea".
-- Son **capas distintas** del parallax, no variantes. El naming confuso induce a pensar que son pares a/b cuando son top/bottom.
-
-### 6.3 Lecciones canon vigentes (del anterior)
-
-- Edit pierde tabs → PowerShell `[char]9`.
-- Variant inference con warnings-as-errors → tipar explícito.
-- Tests headless NO cargan autoloads.
-- Stats = Base + Equipo + Skills + Set (orden: en PlayerStatsComponent.recalculate).
-- Bosses herencia Enemy + override `_tick_state` con state >= 100.
-- Element synergy queries SetBonusSystem solo si team=1.
-- **[NUEVO] Antes de implementar capas parallax: verificar alpha real del PNG con Read tool (es multimodal). PNG sin alpha tapa todo lo de atrás.**
-
----
-
-## 7. Archivos modificados esta sesión
-
-| Archivo | Cambio |
-|---|---|
-| `scripts/systems/player_skill_system.gd` | Fix `add_temporary_charges(charges, duration)` con duration desde params. Línea 232-236. |
-| `scripts/world/world.gd` | +3 @onready vars (mid/foretop/forebottom sprites) + 3 consts MID/FORE_TOP/FORE_BOTTOM_TEXTURES + helper `_zone_key_for_stage` + `_apply_background_for_stage` rota 4 capas + `_apply_ambient_tint` tween a 4 capas. |
-
----
-
-## 8. Estado Fase 3 final (delta vs handoff anterior)
-
-- ✅ Fix `add_temporary_charges` ya no crashea PlayerSkillSystem al usar Escudo Mágico.
-- ⚠️ Parallax 4 capas con rotación implementado **pero** bloqueado visualmente por bug de assets blancos.
-- 🆕 **Backlog NUEVO PRIORIDAD 1**: fix assets BG zona 1 (shader o regenerar).
-
-Total acumulado: 60 tasks cerradas (58 anteriores + 2 nuevas). Fase 3 lógica ~95% completa. Visual zona 1 con bug bloqueante identificado pero NO resuelto.
-
----
-
-**Fin handoff corto.** Próxima sesión (Gemini): empezar por aplicar fix opción A del §3.2 + testear in-game.
-
-> 🔗 Handoff anterior consolidado: [2026-05-27-1625-completo.md](2026-05-27-1625-completo.md) — leer para contexto completo de la jornada (58 tasks Fase 3 lógica).
+> 🔗 Handoff completo: [`2026-05-28-1724-fase3-cierre-logica.md`](2026-05-28-1724-fase3-cierre-logica.md)
+> 🔗 Handoff anterior: [`2026-05-27-1830-bug-assets-bg.md`](2026-05-27-1830-bug-assets-bg.md)
