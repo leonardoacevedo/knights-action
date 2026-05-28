@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://scripts/data/affix_data.gd" id="2_affixdata"]
+
+[sub_resource type="Resource" id="Affix_hp"]
+script = ExtResource("2_affixdata")
+stat_id = &"hp"
+display_name = "Vida"
+value = 8
+
+[sub_resource type="Resource" id="Affix_atkspd"]
+script = ExtResource("2_affixdata")
+stat_id = &"attack_speed"
+display_name = "Velocidad de Ataque"
+value = 6
+
+[resource]
+script = ExtResource("1_itemdata")
+id = &"vara_tempestad"
+display_name = "Vara de la Tempestad"
+description = "Cetro de madera bañado en relámpago. Truena cuando lo blandes."
+slot = 0
+rarity = 2
+element = 4
+stat_main = 30
+refinement_level = 0
+affixes = [SubResource("Affix_hp"), SubResource("Affix_atkspd")]
+visual_type = 3

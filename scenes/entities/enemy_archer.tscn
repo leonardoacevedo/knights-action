@@ -1,11 +1,24 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
 [ext_resource type="PackedScene" path="res://scenes/projectiles/projectile_arrow.tscn" id="2_proj"]
+[ext_resource type="Script" path="res://scripts/rendering/enemy_figure.gd" id="3_figure"]
+
+; Hurtbox archer: más delgado y un poco más bajo — silueta ágil de cazador.
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_archer_hurt"]
+size = Vector2(15, 52)
 
 [node name="EnemyArcher" instance=ExtResource("1_base")]
 enemy_class = 2
 projectile_scene = ExtResource("2_proj")
 
 [node name="StickFigure" parent="." index="1"]
+script = ExtResource("3_figure")
 body_color = Color(0.25, 0.55, 0.25, 1)
+class_style = 3
+accent_color = Color(0.18, 0.32, 0.18, 1)
+leather_color = Color(0.32, 0.22, 0.14, 1)
+
+[node name="HurtboxShape" parent="Hurtbox" index="0"]
+position = Vector2(0, -26)
+shape = SubResource("RectangleShape2D_archer_hurt")

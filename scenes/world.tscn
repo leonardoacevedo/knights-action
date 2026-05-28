@@ -9,10 +9,10 @@
 [ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_bga_amanecer_1920x1080.png" id="8_bga"]
 [ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_bgb_mediodia_1920x1080.png" id="9_bgb"]
 [ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_bgc_atardecer_1920x1080.png" id="10_bgc"]
-[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_mida_ruinas_1920x1080.png" id="11_mida"]
-[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1920x1080.png" id="12_midb"]
-[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1920x1080.png" id="13_forea"]
-[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1920x1080.png" id="14_foreb"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_mida_ruinas_1280x720.png" id="11_mida"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1280x720.png" id="12_midb"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1280x360.png" id="13_forea"]
+[ext_resource type="Texture2D" path="res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1280x360.png" id="14_foreb"]
 
 [sub_resource type="Gradient" id="Gradient_sky"]
 offsets = PackedFloat32Array(0, 0.45, 0.75, 1)

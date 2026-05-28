@@ -64,6 +64,16 @@ const CANTO_RADIUS: float = 220.0
 const CANTO_SLOW_MULT: float = 0.7
 const CANTO_TICK_INTERVAL: float = 0.5
 
+# Muralla Estática (F2) — refleja proyectiles del player dentro del radio.
+# Constantes faltantes (bug 28/05): el código las referenciaba pero nunca se declararon,
+# crasheaba al entrar fase 2 cuando intentaba activar Muralla. Valor radio 90px
+# canónico del handoff 27/05 (1625-completo).
+const MURALLA_WINDUP_SECONDS: float = 0.7
+const MURALLA_ACTIVE_SECONDS: float = 2.0
+const MURALLA_COOLDOWN_MIN: float = 9.0
+const MURALLA_COOLDOWN_MAX: float = 13.0
+const MURALLA_REFLECT_RADIUS: float = 90.0
+
 const PHASE_2_COOLDOWN_FACTOR: float = 0.80
 
 # ─── Runtime ─────────────────────────────────────────────────────────────────
@@ -349,6 +359,8 @@ func _apply_nova_damage() -> void:
 				var se: StatusEffectComponent = owner_node.get_node_or_null("StatusEffects") as StatusEffectComponent
 				if se != null:
 					se.apply(freeze_data, self)
+	# Burst de impacto cyan — sin esto Nova de Hielo no muestra explosión visible (solo el círculo telegraph).
+	_spawn_aoe_impact_burst(pos, Color(0.55, 0.9, 1.0, 0.95), 1.3)
 
 
 func _fire_triple_shot() -> void:

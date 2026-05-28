@@ -15,7 +15,7 @@ size = Vector2(20, 60)
 size = Vector2(40, 30)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_hurt"]
-size = Vector2(22, 56)
+size = Vector2(18, 54)
 
 [node name="Enemy" type="CharacterBody2D"]
 collision_layer = 4

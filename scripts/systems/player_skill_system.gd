@@ -164,6 +164,7 @@ func _execute_heal(data: PlayerSkillData) -> void:
 	var pct: float = float(data.params.get("heal_pct", 0.30))
 	var amount: int = int(round(float(h.max_health) * pct))
 	h.heal(amount)
+	_spawn_skill_vfx_heal()
 
 
 func _execute_buff_damage(data: PlayerSkillData) -> void:
@@ -172,12 +173,14 @@ func _execute_buff_damage(data: PlayerSkillData) -> void:
 	var mag: float = float(data.params.get("magnitude", 0.30))
 	var dur: float = float(data.params.get("duration", 5.0))
 	_player.status_effects.apply(_status_berserker, _player, mag, dur)
+	_spawn_skill_vfx_buff_damage(dur)
 
 
 func _execute_aoe_damage(data: PlayerSkillData) -> void:
 	var radius: float = float(data.params.get("radius", 100.0))
 	var damage: int = int(data.params.get("damage", 25))
 	_apply_aoe(radius, damage, null, 0.0, 0.0)
+	_spawn_skill_vfx_aoe(radius, Color(1.0, 0.85, 0.3, 0.9), false)
 
 
 func _execute_aoe_burn(data: PlayerSkillData) -> void:
@@ -188,6 +191,7 @@ func _execute_aoe_burn(data: PlayerSkillData) -> void:
 	# BURN data lo cargamos del catálogo común del player.
 	var burn_data: StatusEffectData = _get_burn_data()
 	_apply_aoe(radius, damage, burn_data, burn_tick, burn_dur)
+	_spawn_skill_vfx_aoe(radius, Color(1.0, 0.45, 0.15, 0.95), true)
 
 
 func _execute_dash_forward(data: PlayerSkillData) -> void:
@@ -202,6 +206,7 @@ func _execute_dash_forward(data: PlayerSkillData) -> void:
 	# Buff de daño temporal para el próximo swing.
 	if _player.get("status_effects") != null:
 		_player.status_effects.apply(_status_berserker, _player, mult - 1.0, 0.4)
+	_spawn_skill_vfx_dash(facing, dist)
 
 
 func _execute_spawn_projectile(data: PlayerSkillData) -> void:
@@ -223,6 +228,7 @@ func _execute_spawn_projectile(data: PlayerSkillData) -> void:
 	proj.launch(Vector2(facing, 0.0), final_dmg, 1, elem)
 	proj.set_source(_player)  # LUZ vampire heal tracking
 	_player.get_tree().current_scene.add_child(proj)
+	_spawn_skill_vfx_muzzle_flash(facing)
 
 
 func _execute_gain_shield(data: PlayerSkillData) -> void:
@@ -235,6 +241,7 @@ func _execute_gain_shield(data: PlayerSkillData) -> void:
 		s.add_temporary_charges(charges, duration)
 	else:
 		s.restore_all()  # fallback defensivo
+	_spawn_skill_vfx_shield(duration)
 
 
 func _execute_invis(data: PlayerSkillData) -> void:
@@ -246,6 +253,7 @@ func _execute_invis(data: PlayerSkillData) -> void:
 	var invis: StatusEffectData = load("res://resources/status_effects/post_dash_invis.tres")
 	if invis != null:
 		_player.status_effects.apply(invis, _player, NAN, dur)
+	_spawn_skill_vfx_shadow_wisp()
 
 
 func _execute_apply_slow_aoe(data: PlayerSkillData) -> void:
@@ -266,6 +274,7 @@ func _execute_apply_slow_aoe(data: PlayerSkillData) -> void:
 		var se: StatusEffectComponent = owner_node.get("status_effects") as StatusEffectComponent
 		if se != null:
 			se.apply(slow_data, _player, slow_mult, slow_dur)
+	_spawn_skill_vfx_aoe(radius, Color(0.5, 0.85, 1.0, 0.85), false)
 
 
 # ─── Helpers compartidos ──────────────────────────────────────────────────────
@@ -349,3 +358,342 @@ func _restore_state(data: Dictionary) -> void:
 		else:
 			push_warning("PlayerSkillSystem._restore_state: skill '%s' no encontrada en '%s'" % [entry, path])
 			unequip(i)
+
+
+# ─── VFX spawners ────────────────────────────────────────────────────────────
+# Cada VFX se ancla a la posición global del player en el momento del cast.
+# Se libera solo via Tween + queue_free para no requerir cleanup externo.
+
+func _vfx_scene_root() -> Node:
+	if _player == null:
+		return null
+	return _player.get_tree().current_scene
+
+
+## Helper: anillo expansivo (Line2D cerrado) que escala y fade.
+func _spawn_expanding_ring(pos: Vector2, color: Color, target_radius: float, duration: float, width: float = 4.0) -> void:
+	var root: Node = _vfx_scene_root()
+	if root == null:
+		return
+	var holder: Node2D = Node2D.new()
+	holder.global_position = pos
+	holder.z_index = 5
+	root.add_child(holder)
+	var ring: Line2D = Line2D.new()
+	ring.width = width
+	ring.default_color = color
+	ring.closed = true
+	var pts: PackedVector2Array = PackedVector2Array()
+	var segs: int = 32
+	var base_r: float = 8.0
+	for i in range(segs):
+		var ang: float = i * TAU / float(segs)
+		pts.append(Vector2(cos(ang), sin(ang)) * base_r)
+	ring.points = pts
+	holder.add_child(ring)
+	var scale_target: float = target_radius / base_r
+	var tween: Tween = root.create_tween().set_parallel(true)
+	tween.tween_property(holder, "scale", Vector2(scale_target, scale_target), duration) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring, "modulate:a", 0.0, duration)
+	tween.chain().tween_callback(func() -> void:
+		if is_instance_valid(holder):
+			holder.queue_free()
+	)
+
+
+## Helper: burst de GPUParticles2D one-shot. Se auto-destruye tras lifetime.
+func _spawn_particle_burst(pos: Vector2, color: Color, amount: int, lifetime: float,
+		velocity_min: float, velocity_max: float, gravity_y: float, spread: float = 180.0,
+		direction: Vector3 = Vector3(0, -1, 0), z_idx: int = 5) -> void:
+	var root: Node = _vfx_scene_root()
+	if root == null:
+		return
+	var holder: Node2D = Node2D.new()
+	holder.global_position = pos
+	holder.z_index = z_idx
+	root.add_child(holder)
+	var burst: GPUParticles2D = GPUParticles2D.new()
+	burst.amount = amount
+	burst.lifetime = lifetime
+	burst.explosiveness = 1.0
+	burst.one_shot = true
+	burst.emitting = true
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 6.0
+	mat.direction = direction
+	mat.spread = spread
+	mat.gravity = Vector3(0, gravity_y, 0)
+	mat.initial_velocity_min = velocity_min
+	mat.initial_velocity_max = velocity_max
+	mat.scale_min = 0.5
+	mat.scale_max = 1.3
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, color)
+	grad.set_color(1, Color(color.r, color.g, color.b, 0.0))
+	var gtex: GradientTexture1D = GradientTexture1D.new()
+	gtex.gradient = grad
+	mat.color_ramp = gtex
+	burst.process_material = mat
+	holder.add_child(burst)
+	# Free tras lifetime + margen
+	var t: Timer = Timer.new()
+	t.wait_time = lifetime + 0.3
+	t.one_shot = true
+	t.timeout.connect(func() -> void:
+		if is_instance_valid(holder):
+			holder.queue_free()
+	)
+	holder.add_child(t)
+	t.start()
+
+
+## Curación: chispas verdes ascendentes + cruz roja flotando arriba del player.
+func _spawn_skill_vfx_heal() -> void:
+	if _player == null:
+		return
+	var pos: Vector2 = _player.global_position + Vector2(0, -30)
+	_spawn_particle_burst(pos, Color(0.40, 1.0, 0.50, 0.95), 30, 0.8,
+		60.0, 120.0, -120.0, 40.0, Vector3(0, -1, 0), 6)
+	# Cruz roja flotante
+	var root: Node = _vfx_scene_root()
+	if root == null:
+		return
+	var cross: Node2D = Node2D.new()
+	cross.global_position = pos + Vector2(0, -10)
+	cross.z_index = 7
+	root.add_child(cross)
+	var vbar: Polygon2D = Polygon2D.new()
+	vbar.color = Color(0.95, 0.20, 0.25, 1.0)
+	vbar.polygon = PackedVector2Array([
+		Vector2(-3, -14), Vector2(3, -14), Vector2(3, 14), Vector2(-3, 14),
+	])
+	cross.add_child(vbar)
+	var hbar: Polygon2D = Polygon2D.new()
+	hbar.color = Color(0.95, 0.20, 0.25, 1.0)
+	hbar.polygon = PackedVector2Array([
+		Vector2(-12, -3), Vector2(12, -3), Vector2(12, 3), Vector2(-12, 3),
+	])
+	cross.add_child(hbar)
+	cross.scale = Vector2(0.4, 0.4)
+	var tween: Tween = root.create_tween().set_parallel(true)
+	tween.tween_property(cross, "scale", Vector2(1.2, 1.2), 0.25) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(cross, "position:y", cross.position.y - 40.0, 0.9)
+	tween.tween_property(cross, "modulate:a", 0.0, 0.35).set_delay(0.55)
+	tween.chain().tween_callback(func() -> void:
+		if is_instance_valid(cross):
+			cross.queue_free()
+	)
+
+
+## Buff de daño (status berserker): aura roja sostenida + 6 chispas iniciales.
+func _spawn_skill_vfx_buff_damage(duration: float) -> void:
+	if _player == null:
+		return
+	var pos: Vector2 = _player.global_position + Vector2(0, -30)
+	_spawn_particle_burst(pos, Color(1.0, 0.30, 0.15, 0.95), 18, 0.45,
+		90.0, 180.0, 60.0, 180.0, Vector3(0, -1, 0), 6)
+	# Aura sostenida (anillo pulsante en el suelo durante toda la duración)
+	var root: Node = _vfx_scene_root()
+	if root == null:
+		return
+	var aura: Node2D = Node2D.new()
+	aura.z_index = 0
+	root.add_child(aura)
+	var ring: Line2D = Line2D.new()
+	ring.width = 3.0
+	ring.default_color = Color(1.0, 0.20, 0.10, 0.85)
+	ring.closed = true
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i in range(28):
+		var ang: float = i * TAU / 28.0
+		pts.append(Vector2(cos(ang) * 26.0, sin(ang) * 8.0))
+	ring.points = pts
+	aura.add_child(ring)
+	# Follow player
+	var follow_timer: float = duration
+	var poll: Timer = Timer.new()
+	poll.wait_time = 0.05
+	poll.timeout.connect(func() -> void:
+		if not is_instance_valid(aura) or not is_instance_valid(_player):
+			return
+		aura.global_position = _player.global_position + Vector2(0, -2)
+		follow_timer -= 0.05
+		if follow_timer <= 0.0:
+			aura.queue_free()
+	)
+	aura.add_child(poll)
+	poll.start()
+
+
+## AoE radial: shockwave ring + (opcional) chispas de fuego para Onda Sísmica.
+func _spawn_skill_vfx_aoe(radius: float, color: Color, with_embers: bool) -> void:
+	if _player == null:
+		return
+	var pos: Vector2 = _player.global_position + Vector2(0, -10)
+	# Anillo expansivo
+	_spawn_expanding_ring(pos, color, radius, 0.45, 5.0)
+	# Segundo anillo más interno (doble shockwave)
+	_spawn_expanding_ring(pos, Color(color.r, color.g, color.b, color.a * 0.65),
+		radius * 0.75, 0.35, 3.0)
+	# Burst central
+	_spawn_particle_burst(pos, color, 24, 0.55,
+		120.0 + radius * 0.4, 200.0 + radius * 0.6, 220.0)
+	# Brasas para skills BURN
+	if with_embers:
+		_spawn_particle_burst(pos, Color(1.0, 0.65, 0.15, 0.95), 30, 0.7,
+			60.0, 150.0, -80.0, 180.0, Vector3(0, -1, 0), 6)
+
+
+## Dash forward (Embestida): trail naranja + flash de impulso.
+func _spawn_skill_vfx_dash(facing: int, distance: float) -> void:
+	if _player == null:
+		return
+	var pos: Vector2 = _player.global_position + Vector2(0, -30)
+	# Burst en el origen — chispas hacia atrás del facing
+	_spawn_particle_burst(pos, Color(1.0, 0.55, 0.18, 0.95), 24, 0.5,
+		80.0, 180.0, 60.0, 60.0,
+		Vector3(-float(facing), 0, 0), 5)
+	# Trail: línea naranja que se desvanece detrás del player en la dirección opuesta
+	var root: Node = _vfx_scene_root()
+	if root == null:
+		return
+	var trail: Line2D = Line2D.new()
+	trail.width = 14.0
+	trail.default_color = Color(1.0, 0.50, 0.15, 0.7)
+	trail.z_index = 3
+	# 4 puntos en la línea del dash (atrás del facing)
+	for i in range(5):
+		var off: float = -float(facing) * float(i) * (distance * 0.25)
+		trail.add_point(pos + Vector2(off, 0))
+	root.add_child(trail)
+	var tween: Tween = root.create_tween()
+	tween.tween_property(trail, "modulate:a", 0.0, 0.45) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(trail):
+			trail.queue_free()
+	)
+
+
+## Muzzle flash (Bola de Fuego): flash naranja en el frente del player.
+func _spawn_skill_vfx_muzzle_flash(facing: int) -> void:
+	if _player == null:
+		return
+	var pos: Vector2 = _player.global_position + Vector2(20.0 * float(facing), -45.0)
+	_spawn_particle_burst(pos, Color(1.0, 0.65, 0.15, 0.95), 20, 0.35,
+		120.0, 240.0, -40.0, 80.0,
+		Vector3(float(facing), -0.3, 0), 6)
+	# Flash redondo brillante
+	var root: Node = _vfx_scene_root()
+	if root == null:
+		return
+	var flash: Node2D = Node2D.new()
+	flash.global_position = pos
+	flash.z_index = 6
+	root.add_child(flash)
+	var circle: Polygon2D = Polygon2D.new()
+	circle.color = Color(1.0, 0.9, 0.5, 0.95)
+	var fpts: PackedVector2Array = PackedVector2Array()
+	for i in range(20):
+		var ang: float = i * TAU / 20.0
+		fpts.append(Vector2(cos(ang), sin(ang)) * 10.0)
+	circle.polygon = fpts
+	flash.add_child(circle)
+	var tween: Tween = root.create_tween().set_parallel(true)
+	tween.tween_property(flash, "scale", Vector2(2.2, 2.2), 0.18) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(circle, "modulate:a", 0.0, 0.25)
+	tween.chain().tween_callback(func() -> void:
+		if is_instance_valid(flash):
+			flash.queue_free()
+	)
+
+
+## Escudo Mágico: hexágono cyan orbitando al player + chispas iniciales.
+func _spawn_skill_vfx_shield(duration: float) -> void:
+	if _player == null:
+		return
+	var pos: Vector2 = _player.global_position + Vector2(0, -30)
+	_spawn_particle_burst(pos, Color(0.55, 0.85, 1.0, 0.95), 22, 0.5,
+		60.0, 140.0, -40.0, 180.0, Vector3(0, -1, 0), 6)
+	# Hexágono sostenido orbitando
+	var root: Node = _vfx_scene_root()
+	if root == null:
+		return
+	var hex_holder: Node2D = Node2D.new()
+	hex_holder.z_index = 4
+	root.add_child(hex_holder)
+	var hex: Line2D = Line2D.new()
+	hex.width = 2.5
+	hex.default_color = Color(0.65, 0.92, 1.0, 0.85)
+	hex.closed = true
+	for i in range(6):
+		var ang: float = i * TAU / 6.0 + PI / 6.0
+		hex.add_point(Vector2(cos(ang), sin(ang)) * 28.0)
+	hex_holder.add_child(hex)
+	# Spin + follow
+	var elapsed: float = 0.0
+	var spin_timer: Timer = Timer.new()
+	spin_timer.wait_time = 0.05
+	spin_timer.timeout.connect(func() -> void:
+		if not is_instance_valid(hex_holder) or not is_instance_valid(_player):
+			return
+		hex_holder.global_position = _player.global_position + Vector2(0, -30)
+		hex_holder.rotation += 0.18
+		elapsed += 0.05
+		if elapsed >= duration:
+			hex_holder.queue_free()
+	)
+	hex_holder.add_child(spin_timer)
+	spin_timer.start()
+
+
+## Sombra: voluta púrpura/negra envuelve al player + fade rápido.
+func _spawn_skill_vfx_shadow_wisp() -> void:
+	if _player == null:
+		return
+	var pos: Vector2 = _player.global_position + Vector2(0, -25)
+	# Burst púrpura denso radial
+	_spawn_particle_burst(pos, Color(0.55, 0.25, 0.75, 0.9), 28, 0.7,
+		40.0, 100.0, -20.0, 180.0, Vector3(0, -1, 0), 5)
+	# Anillo de humo descendente
+	var root: Node = _vfx_scene_root()
+	if root == null:
+		return
+	var smoke: GPUParticles2D = GPUParticles2D.new()
+	smoke.amount = 18
+	smoke.lifetime = 1.0
+	smoke.explosiveness = 0.8
+	smoke.one_shot = true
+	smoke.emitting = true
+	smoke.global_position = pos
+	smoke.z_index = 4
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 18.0
+	mat.direction = Vector3(0, -0.3, 0)
+	mat.spread = 60.0
+	mat.initial_velocity_min = 10.0
+	mat.initial_velocity_max = 30.0
+	mat.scale_min = 1.5
+	mat.scale_max = 3.5
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(0.25, 0.10, 0.40, 0.95))
+	grad.set_color(1, Color(0.05, 0.02, 0.10, 0.0))
+	var gtex: GradientTexture1D = GradientTexture1D.new()
+	gtex.gradient = grad
+	mat.color_ramp = gtex
+	smoke.process_material = mat
+	root.add_child(smoke)
+	var t: Timer = Timer.new()
+	t.wait_time = 1.4
+	t.one_shot = true
+	t.timeout.connect(func() -> void:
+		if is_instance_valid(smoke):
+			smoke.queue_free()
+	)
+	smoke.add_child(t)
+	t.start()

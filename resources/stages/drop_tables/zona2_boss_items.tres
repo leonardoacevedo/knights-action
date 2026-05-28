@@ -6,6 +6,7 @@
 [ext_resource type="Resource" path="res://resources/items/shields/aegis_igneo.tres" id="4_aegis_igneo"]
 [ext_resource type="Resource" path="res://resources/items/weapons/martillo_guardian.tres" id="5_martillo"]
 [ext_resource type="Resource" path="res://resources/items/weapons/espada_runica.tres" id="6_espada_runica"]
+[ext_resource type="Resource" path="res://resources/items/weapons/martillo_fragua.tres" id="7_martillo_fragua"]
 
 [sub_resource type="Resource" id="Entry_z2bi_peto"]
 script = ExtResource("2_dtentry")
@@ -43,6 +44,15 @@ material_count_max = 1
 weight = 1.0
 drop_chance = 0.15
 
+[sub_resource type="Resource" id="Entry_z2bi_martillo_fragua"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("7_martillo_fragua")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.30
+
 [resource]
 script = ExtResource("1_dttable")
-entries = Array[ExtResource("2_dtentry")]([SubResource("Entry_z2bi_peto"), SubResource("Entry_z2bi_aegis"), SubResource("Entry_z2bi_martillo"), SubResource("Entry_z2bi_runica")])
+entries = Array[ExtResource("2_dtentry")]([SubResource("Entry_z2bi_peto"), SubResource("Entry_z2bi_aegis"), SubResource("Entry_z2bi_martillo"), SubResource("Entry_z2bi_runica"), SubResource("Entry_z2bi_martillo_fragua")])

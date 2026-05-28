@@ -81,14 +81,11 @@ GDD §5.4.
 
 ## Elementos
 
-### Triángulo elemental MVP
-- Fuego > Tierra
-- Tierra > Agua
-- Agua > Fuego
+### Triángulos elementales (GDD §5.3 v2.2 — 6 elementos canon)
 
-Daño con **ventaja**: ×1.5. Daño con **desventaja**: ×0.66.
+Daño con **ventaja**: ×1.5. Daño con **desventaja**: ×0.66. Cross-triángulo / mismo elemento / NEUTRO involucrado: ×1.0.
 
-**Canon definitivo 27/05** — 6 elementos totales: Fuego, Agua, Tierra, Viento, Luz, Sombra. Dos ejes:
+**Canon definitivo 27/05 + GDD v2.2** — 6 elementos totales: Fuego, Agua, Tierra, Viento, Luz, Sombra. Dos ejes:
 
 - **Eje natural** (control + daño): triángulo FUEGO > TIERRA > AGUA > FUEGO + VIENTO independiente. Status: FUEGO=Quemadura (DOT 3s), AGUA=Congelación (-30% vel 2s), TIERRA=Fractura (próximo golpe +20%, single-use), VIENTO=Desequilibrio (interrumpe ataque + CD penalty).
 - **Eje cósmico** (santidad / maldad): triángulo VIENTO > LUZ > SOMBRA > VIENTO. Status: LUZ=Bendición (vampire heal 5% HP máx al atacante), SOMBRA=Miasma (DOT bypass armor + -50% Furia gen).
@@ -222,6 +219,18 @@ Nodo registrado globalmente en `project.godot`. Estado y servicios compartidos.
 
 ### State Machine
 Patrón usado en IA de enemigos y bosses. Cada estado es una clase con `enter`, `process`, `exit`.
+
+### BossFigure
+Subclase de `StickFigure` que reemplaza el render de líneas por silueta llena (polígonos) con accesorios temáticos (capa, cuernos, halo, hood, tiara). Cada boss `.tscn` cambia el script del nodo `StickFigure` a `BossFigure` y configura `figure_style`, `head_style`, `has_cape`, etc. + arma signature procedural (mazo musgo Guardian, martillo demente Ignis, cetro hielo Lyss, lanza luz Vael, etc). Implementado 28/05/2026.
+
+### EnemyFigure
+Subclase de `StickFigure` para mobs normales (R1/R2/R3). Llama `super._draw()` y dibuja overlay de accesorios por `class_style`: casco MELEE, yelmo+hombreras TANK, capucha+carcaj ARCHER, sombrero cónico+amuleto MAGE. Mantiene anim de bob/walk del padre. Implementado 28/05/2026.
+
+### Weapon Swing Hitbox
+Sistema de hitbox honesto (Pilar #2). `HitboxComponent.setup_weapon_swing(visual_type, reach, width, arc_deg, damage_zone, scale_mult)` crea `ConvexPolygonShape2D` que rota con `update_swing_arc(progress, facing)` durante la ventana `ATTACK_ACTIVE`. Defaults por visual_type: SWORD reach 50 / damage_zone 1.0 (filo entero), HAMMER reach 36 / damage_zone 0.35 (solo cabeza). `scale_mult = sprite.scale × weapon_scale` para coherencia con render. Override por `ItemData.weapon_reach/width/arc_deg/damage_zone`. Implementado 28/05/2026.
+
+### Status Effect VFX
+VFX procedurales spawneados por `StatusEffectComponent` al aplicar un status nuevo. Persistente durante la duración, free en remove/expire. Por id: burn=llamas naranjas ascendentes, freeze=cristales cyan, fractura=crack rojizo + glow, desequilibrio=swirl blanco rápido, bendicion=halo dorado pulsante, miasma=aura verde envolvente. Refuerza Pilar #2 (legibilidad). Implementado 28/05/2026.
 
 ---
 

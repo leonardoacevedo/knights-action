@@ -55,15 +55,27 @@ neutral:        daño × 1.0
 
 Source: GDD §5.3.
 
-### Triángulo elemental MVP
+### Triángulos elementales (GDD §5.3 v2.2 — 6 elementos canon)
 
+**Eje natural** (control + daño puro):
 ```
 Fuego  > Tierra
 Tierra > Agua
 Agua   > Fuego
+Viento — independiente dentro del eje natural
 ```
 
-(Bidireccional: si Fuego > Tierra, entonces Tierra es débil contra Fuego.)
+**Eje cósmico** (santidad / maldad):
+```
+Viento > Luz
+Luz    > Sombra
+Sombra > Viento
+```
+
+**Cross-triángulo:** ×1.0 neutral (ej. FUEGO vs LUZ, AGUA vs SOMBRA).
+**Mismo elemento:** ×1.0. **NEUTRO involucrado:** ×1.0.
+
+Implementación: `GameConfig.ELEMENT_ADVANTAGE` (doble triángulo).
 
 ### Decay de Furia
 
@@ -262,3 +274,66 @@ Acumulativo (no multiplicativo entre sí). El bonus tier 3 (+2%) **sustituye** a
 | :--- | :--- | :--- | :--- | :--- |
 | 2026-05-21 | — | — | — | Inicial: fórmulas extraídas del GDD v2.1. |
 | 2026-05-25 | Refinamiento — tabla de prob. | — | Documentada arriba | Backend implementado. Implementación en `upgrade_manager.gd`. |
+| 2026-05-28 | Weapon Swing Hitbox | hitbox = rect fijo en frente | polígono rota con swing + scale por sprite | Pilar #2. Defaults SWORD/HAMMER por visual_type + override per ItemData. |
+
+---
+
+## Weapon Swing Hitbox (28/05/2026)
+
+### Forma del polígono
+
+```
+start_x = reach × (1 - damage_zone)
+end_x   = reach
+half_w  = width / 2
+taper   = 0.7  (punta 30% más fina que base)
+
+local_pts = [
+  (start_x, -half_w),
+  (end_x, -half_w × taper),
+  (end_x,  half_w × taper),
+  (start_x, half_w),
+]
+```
+
+### Rotación por swing
+
+```
+angle = lerp(-arc_rad / 2, +arc_rad / 2, progress)   # progress 0..1
+rotated.x = (p.x × cos(angle) - p.y × sin(angle)) × facing
+rotated.y =  p.x × sin(angle) + p.y × cos(angle)
+```
+
+### Escalado por sprite
+
+```
+scale_mult  = sprite.scale.x × sprite.weapon_scale
+final_reach = base_reach × scale_mult
+final_width = base_width × scale_mult
+```
+
+| Entidad | sprite.scale | weapon_scale | mult | SWORD reach | HAMMER reach |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Player | 1.0 | 1.0 | 1.00× | 50 | 36 |
+| Mob R1 | 1.0 | 1.0 | 1.00× | 50 | 36 |
+| Mob R2 | 1.15 | 1.0 | 1.15× | 57 | 41 |
+| Mob R3 | 1.30 | 1.0 | 1.30× | 65 | 47 |
+| Guardian TANK R4 | 2.03 | 1.8 | 3.65× | — | 131 |
+| Ignis MELEE R4 | 1.67 | 1.8 | 3.00× | — | 108 |
+| Duelista MELEE R4 | 1.52 | 1.6 | 2.44× | 122 | — |
+
+### Defaults por visual_type (HitboxComponent.WEAPON_HITBOX_DEFAULTS)
+
+| visual_type | reach | width | arc_deg | damage_zone |
+| :--- | :---: | :---: | :---: | :---: |
+| 0 (NONE / puños) | 24 | 14 | 100° | 1.00 |
+| 1 (SWORD) | 50 | 12 | 130° | 1.00 (filo entero) |
+| 4 (HAMMER) | 36 | 26 | 110° | 0.35 (solo cabeza) |
+
+Bow (2) / Staff (3) / Shield (5) excluidos — ranged o no-arma.
+
+### Override por ItemData
+
+Cada `.tres` puede setear `weapon_reach/width/arc_deg/damage_zone` no-cero para reemplazar default. Cero = usar default del visual_type.
+
+Source: `scripts/components/hitbox_component.gd` + `scripts/data/item_data.gd`.

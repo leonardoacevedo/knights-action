@@ -123,6 +123,11 @@ func _ready() -> void:
 	health.health_changed.connect(_on_health_changed)
 
 
+## Override: Ignis es MELEE class pero blande un martillo. Hitbox tipo HAMMER.
+func _implicit_weapon_visual_type() -> int:
+	return 4  # HAMMER
+
+
 func _on_health_changed(current: int, maximum: int) -> void:
 	if _phase == 1 and current <= maximum / 2:
 		_enter_phase_2()

@@ -65,6 +65,21 @@ enum Element {
 ## Para slot=ARMADURA siempre None (no se renderiza nada extra).
 @export_enum("None:0", "Sword:1", "Bow:2", "Staff:3", "Hammer:4", "Shield:5") var visual_type: int = 0
 
+# ─── Hitbox de arma (Pilar #2 — hitboxes honestas) ───────────────────────────
+# Definen la forma del polígono de daño que rota con el swing en ATTACK.
+# 0 = usar default del visual_type (ver HitboxComponent.weapon_hitbox_defaults).
+# Override por .tres permite armas custom (ej. espada R4 con reach extra).
+# Bow/Staff = ranged: estos campos se ignoran (no hay hitbox melee).
+## Alcance desde la mano (px). Default por tipo: sword=50, hammer=36, none=24.
+@export var weapon_reach: float = 0.0
+## Ancho del filo/cabeza (px). Default: sword=12, hammer=26.
+@export var weapon_width: float = 0.0
+## Arco del swing en grados (sweep total). Default: sword=130, hammer=110.
+@export var weapon_arc_deg: float = 0.0
+## Fracción del reach que daña (0-1). Default: sword=1.0 (todo el filo),
+## hammer=0.35 (solo el cabezal), none=1.0 (puño entero).
+@export_range(0.0, 1.0) var weapon_damage_zone: float = 0.0
+
 # ─── Helpers triviales ────────────────────────────────────────────────────────
 
 func is_weapon() -> bool:

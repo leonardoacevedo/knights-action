@@ -397,6 +397,19 @@ func _start_attack() -> void:
 	# Setear elemento del arma en el hitbox para el cálculo elemental. GDD §5.3.
 	# Si no hay arma equipada, NEUTRO (sin modifier).
 	hitbox.element = weapon.element if weapon != null else ItemData.Element.NEUTRO
+	# Hitbox de swing: configurar polígono según arma equipada. Si ranged, clear.
+	if not _is_ranged_attack:
+		var reach: float = weapon.weapon_reach if weapon != null else 0.0
+		var width: float = weapon.weapon_width if weapon != null else 0.0
+		var arc: float = weapon.weapon_arc_deg if weapon != null else 0.0
+		var dz: float = weapon.weapon_damage_zone if weapon != null else 0.0
+		# Scale: sprite.scale * sprite.weapon_scale para coincidir con render del arma.
+		var scale_mult: float = 1.0
+		if sprite != null:
+			scale_mult = sprite.scale.x * sprite.weapon_scale
+		hitbox.setup_weapon_swing(visual, reach, width, arc, dz, scale_mult)
+	else:
+		hitbox.clear_swing_shape()
 
 
 ## Aplica un facing nuevo: actualiza sprite, hitbox y arma visible.
@@ -429,6 +442,11 @@ func _tick_attack(delta: float) -> void:
 		var should_be_active: bool = _attack_time >= ATTACK_ACTIVE_START and _attack_time <= ATTACK_ACTIVE_END
 		if hitbox.monitoring != should_be_active:
 			hitbox.set_active(should_be_active)
+		# Animar polígono del swing durante la ventana activa. Progreso 0..1.
+		if should_be_active:
+			var win: float = max(ATTACK_ACTIVE_END - ATTACK_ACTIVE_START, 0.001)
+			var p: float = clamp((_attack_time - ATTACK_ACTIVE_START) / win, 0.0, 1.0)
+			hitbox.update_swing_arc(p, current_facing)
 		# FUEGO 3pc: AoE al inicio de la ventana activa melee (una vez por swing).
 		if _attack_time >= ATTACK_ACTIVE_START and _fuego_next_attack_aoe:
 			_trigger_fuego_aoe()
@@ -438,6 +456,7 @@ func _tick_attack(delta: float) -> void:
 		_is_ranged_attack = false
 		_projectile_fired_this_attack = false
 		hitbox.set_active(false)
+		hitbox.clear_swing_shape()
 
 
 func _on_hit_landed(target: HurtboxComponent) -> void:

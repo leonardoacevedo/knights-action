@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
 [ext_resource type="Script" path="res://scripts/entities/boss_duelista.gd" id="2_boss"]
+[ext_resource type="Script" path="res://scripts/rendering/boss_figure.gd" id="3_figure"]
 
 ; Hitboxes proporcionales al sprite scale ~1.5x. Hereda del enemy.tscn.
 
@@ -25,8 +26,18 @@ position = Vector2(0, -40)
 shape = SubResource("RectangleShape2D_duel_body")
 
 [node name="StickFigure" parent="." index="1"]
-body_color = Color(1, 0.45, 0.2, 1)
+script = ExtResource("3_figure")
+body_color = Color(0.55, 0.15, 0.12, 1)
 weapon_scale = 1.6
+figure_style = 0
+head_style = 0
+accent_color = Color(0.92, 0.42, 0.22, 1)
+glow_color = Color(1.0, 0.4, 0.2, 0.55)
+eye_glow_color = Color(1.0, 0.6, 0.3, 1)
+has_cape = true
+cape_color = Color(0.28, 0.08, 0.08, 0.95)
+body_scale_mult = 1.0
+signature_weapon = 5
 
 [node name="Hitbox" parent="." index="3"]
 position = Vector2(40, -40)

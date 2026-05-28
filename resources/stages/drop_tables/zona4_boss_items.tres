@@ -1,0 +1,131 @@
+[gd_resource type="Resource" script_class="DropTable" format=3 uid="uid://dt_zona4_boss_items"]
+
+; Zona 4 Cumbres de la Tempestad — pool VIENTO/LUZ.
+; Boss Vael "Señor de la Luz Cegadora" + mini-boss Capitán de los Vientos.
+
+[ext_resource type="Script" path="res://scripts/data/drop_table.gd" id="1_dttable"]
+[ext_resource type="Script" path="res://scripts/data/drop_entry.gd" id="2_dtentry"]
+[ext_resource type="Resource" path="res://resources/items/weapons/sable_brisa.tres" id="3_sable"]
+[ext_resource type="Resource" path="res://resources/items/weapons/arco_huracan.tres" id="4_arco_huracan"]
+[ext_resource type="Resource" path="res://resources/items/weapons/vara_luz.tres" id="5_vara_luz"]
+[ext_resource type="Resource" path="res://resources/items/armor/manto_viento.tres" id="6_manto"]
+[ext_resource type="Resource" path="res://resources/items/armor/casulla_luz.tres" id="7_casulla"]
+[ext_resource type="Resource" path="res://resources/items/shields/pavés_viento.tres" id="8_paves"]
+[ext_resource type="Resource" path="res://resources/items/shields/halo_luz.tres" id="9_halo"]
+[ext_resource type="Resource" path="res://resources/items/weapons/martillo_radiante.tres" id="10_martillo_radiante"]
+[ext_resource type="Resource" path="res://resources/items/weapons/espada_alborada.tres" id="11_espada_alborada"]
+[ext_resource type="Resource" path="res://resources/items/weapons/arco_solar.tres" id="12_arco_solar"]
+[ext_resource type="Resource" path="res://resources/items/weapons/vara_tempestad.tres" id="13_vara_tempestad"]
+[ext_resource type="Resource" path="res://resources/items/weapons/maza_tormenta.tres" id="14_maza_tormenta"]
+
+[sub_resource type="Resource" id="Entry_z4bi_sable"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("3_sable")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.30
+
+[sub_resource type="Resource" id="Entry_z4bi_arco_huracan"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("4_arco_huracan")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.28
+
+[sub_resource type="Resource" id="Entry_z4bi_vara_luz"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("5_vara_luz")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.35
+
+[sub_resource type="Resource" id="Entry_z4bi_manto"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("6_manto")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.40
+
+[sub_resource type="Resource" id="Entry_z4bi_casulla"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("7_casulla")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.35
+
+[sub_resource type="Resource" id="Entry_z4bi_paves"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("8_paves")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.30
+
+[sub_resource type="Resource" id="Entry_z4bi_halo"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("9_halo")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.30
+
+[sub_resource type="Resource" id="Entry_z4bi_martillo_radiante"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("10_martillo_radiante")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.20
+
+[sub_resource type="Resource" id="Entry_z4bi_espada_alborada"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("11_espada_alborada")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.25
+
+[sub_resource type="Resource" id="Entry_z4bi_arco_solar"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("12_arco_solar")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.22
+
+[sub_resource type="Resource" id="Entry_z4bi_vara_tempestad"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("13_vara_tempestad")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.22
+
+[sub_resource type="Resource" id="Entry_z4bi_maza_tormenta"]
+script = ExtResource("2_dtentry")
+drop_type = 0
+item_data = ExtResource("14_maza_tormenta")
+material_count_min = 1
+material_count_max = 1
+weight = 1.0
+drop_chance = 0.18
+
+[resource]
+script = ExtResource("1_dttable")
+entries = Array[ExtResource("2_dtentry")]([SubResource("Entry_z4bi_sable"), SubResource("Entry_z4bi_arco_huracan"), SubResource("Entry_z4bi_vara_luz"), SubResource("Entry_z4bi_manto"), SubResource("Entry_z4bi_casulla"), SubResource("Entry_z4bi_paves"), SubResource("Entry_z4bi_halo"), SubResource("Entry_z4bi_martillo_radiante"), SubResource("Entry_z4bi_espada_alborada"), SubResource("Entry_z4bi_arco_solar"), SubResource("Entry_z4bi_vara_tempestad"), SubResource("Entry_z4bi_maza_tormenta")])

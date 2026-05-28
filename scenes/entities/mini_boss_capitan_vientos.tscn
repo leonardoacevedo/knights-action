@@ -1,0 +1,45 @@
+[gd_scene load_steps=6 format=3]
+
+; Mini-boss Zona 4 Etapa 3 — Capitán de los Vientos.
+; Archer R3 Elite con stats boosteados + BossFigure custom (capa militar dorada
+; + casco emplumado + arco más grande). NO es R4 boss — usa R3 con scale boost.
+; Lore: docs/lore/bestiario_zona_4.md + cumbres_tempestad.md.
+
+[ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/projectile_arrow.tscn" id="2_proj"]
+[ext_resource type="Script" path="res://scripts/rendering/boss_figure.gd" id="3_figure"]
+
+; Hurtbox elite: levemente más grande que archer R3 normal.
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_capitan_hurt"]
+size = Vector2(20, 60)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_capitan_body"]
+size = Vector2(22, 64)
+
+[node name="MiniBossCapitanVientos" instance=ExtResource("1_base")]
+enemy_class = 2
+rarity = 2
+element = 4
+projectile_scene = ExtResource("2_proj")
+
+[node name="BodyShape" parent="." index="0"]
+position = Vector2(0, -32)
+shape = SubResource("RectangleShape2D_capitan_body")
+
+[node name="StickFigure" parent="." index="1"]
+script = ExtResource("3_figure")
+body_color = Color(0.35, 0.30, 0.55, 1)
+weapon_scale = 1.35
+figure_style = 0
+head_style = 1
+accent_color = Color(0.85, 0.70, 0.30, 1)
+glow_color = Color(0.75, 0.65, 1.0, 0.55)
+eye_glow_color = Color(0.9, 0.95, 1.0, 1)
+has_cape = true
+cape_color = Color(0.85, 0.70, 0.30, 0.95)
+body_scale_mult = 1.1
+signature_weapon = 6
+
+[node name="HurtboxShape" parent="Hurtbox" index="0"]
+position = Vector2(0, -30)
+shape = SubResource("RectangleShape2D_capitan_hurt")

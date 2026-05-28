@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="CraftRecipe" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/craft_recipe.gd" id="1_recipe"]
+[ext_resource type="Script" path="res://scripts/data/craft_recipe_input.gd" id="2_input"]
+[ext_resource type="Resource" path="res://resources/materials/pluma_tormenta.tres" id="3_pluma"]
+[ext_resource type="Resource" path="res://resources/materials/hierba_antigua.tres" id="4_hierba"]
+[ext_resource type="Resource" path="res://resources/items/weapons/sable_brisa.tres" id="5_output"]
+
+[sub_resource type="Resource" id="Input_pluma"]
+script = ExtResource("2_input")
+material = ExtResource("3_pluma")
+count = 4
+
+[sub_resource type="Resource" id="Input_hierba"]
+script = ExtResource("2_input")
+material = ExtResource("4_hierba")
+count = 2
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_sable_brisa"
+display_name = "Forjar Sable de la Brisa Cortante"
+description = "Sable VIENTO R2. Hoja tan fina que silba al cortar el aire."
+inputs = [SubResource("Input_pluma"), SubResource("Input_hierba")]
+output_item = ExtResource("5_output")
+gold_cost = 360
+required_player_level = 18

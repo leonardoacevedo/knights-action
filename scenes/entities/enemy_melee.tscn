@@ -1,6 +1,14 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/rendering/enemy_figure.gd" id="2_figure"]
 
 [node name="EnemyMelee" instance=ExtResource("1_base")]
 enemy_class = 0
+
+[node name="StickFigure" parent="." index="1"]
+script = ExtResource("2_figure")
+body_color = Color(0.85, 0.30, 0.25, 1)
+class_style = 1
+accent_color = Color(0.35, 0.32, 0.38, 1)
+leather_color = Color(0.32, 0.18, 0.10, 1)

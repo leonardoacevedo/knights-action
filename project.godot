@@ -32,6 +32,7 @@ SetBonusSystem="*res://scripts/systems/set_bonus_system.gd"
 GoldSystem="*res://scripts/systems/gold_system.gd"
 TestArenaConfig="*res://scripts/systems/test_arena_config.gd"
 PlayerSkillSystem="*res://scripts/systems/player_skill_system.gd"
+PortraitFactory="*res://scripts/systems/portrait_factory.gd"
 SaveSystem="*res://scripts/systems/save_system.gd"
 
 [input]

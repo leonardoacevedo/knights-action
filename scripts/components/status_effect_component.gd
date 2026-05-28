@@ -27,6 +27,8 @@ class ActiveEffect:
 	var tick_remaining: float
 	var magnitude: float
 	var source: Node
+	## VFX procedural attacheado al owner. Free en expire/remove. Pilar #2.
+	var vfx_node: Node2D
 
 
 var _active: Array[ActiveEffect] = []
@@ -66,6 +68,8 @@ func apply(data: StatusEffectData, source: Node = null, \
 	inst.magnitude = mag
 	inst.tick_remaining = data.tick_interval if data.tick_interval > 0.0 else 0.0
 	inst.source = source
+	# Spawn VFX procedural si el id tiene visual asignado.
+	inst.vfx_node = _spawn_status_vfx(data.id)
 	_active.append(inst)
 	effect_applied.emit(data.id, mag, source)
 
@@ -109,6 +113,7 @@ func remove(id: StringName) -> void:
 		var inst: ActiveEffect = _active[i]
 		if inst.data != null and inst.data.id == id:
 			_active.remove_at(i)
+			_free_vfx(inst)
 			effect_expired.emit(id, inst.source)
 
 
@@ -118,6 +123,7 @@ func clear() -> void:
 	var copy: Array[ActiveEffect] = _active.duplicate()
 	_active.clear()
 	for inst: ActiveEffect in copy:
+		_free_vfx(inst)
 		effect_expired.emit(inst.data.id, inst.source)
 
 
@@ -143,6 +149,7 @@ func _process(delta: float) -> void:
 				effect_ticked.emit(inst.data.id, inst.magnitude, inst.source)
 		if inst.remaining <= 0.0:
 			_active.remove_at(i)
+			_free_vfx(inst)
 			effect_expired.emit(inst.data.id, inst.source)
 
 
@@ -169,3 +176,167 @@ func _combine_magnitude(prev: float, new_mag: float, policy: int) -> float:
 		StatusEffectData.MagnitudePolicy.SUM:
 			return prev + new_mag
 	return new_mag
+
+
+# ─── VFX status procedural (Pilar #2) ──────────────────────────────────────
+# Atacheado al parent (owner del componente). Free en remove/expire.
+# Diseño: VFX persistentes (no one-shot) que duran lo que el status.
+
+func _spawn_status_vfx(id: StringName) -> Node2D:
+	var parent: Node = get_parent()
+	if parent == null:
+		return null
+	var vfx: Node2D = null
+	match id:
+		&"burn":
+			vfx = _build_burn_vfx()
+		&"freeze":
+			vfx = _build_freeze_vfx()
+		&"fractura":
+			vfx = _build_fractura_vfx()
+		&"desequilibrio":
+			vfx = _build_desequilibrio_vfx()
+		&"bendicion":
+			vfx = _build_bendicion_vfx()
+		&"miasma":
+			vfx = _build_miasma_vfx()
+		_:
+			return null
+	if vfx != null:
+		parent.add_child(vfx)
+	return vfx
+
+
+func _free_vfx(inst: ActiveEffect) -> void:
+	if inst.vfx_node != null and is_instance_valid(inst.vfx_node):
+		inst.vfx_node.queue_free()
+	inst.vfx_node = null
+
+
+# ── Helpers de construcción por status ─────────────────────────────────────
+
+func _build_particles(color_start: Color, color_end: Color, amount: int, lifetime: float,
+		spread: float, vel_min: float, vel_max: float, gravity_y: float,
+		emit_radius: float, scale_min: float, scale_max: float,
+		direction: Vector3 = Vector3(0, -1, 0)) -> GPUParticles2D:
+	var p: GPUParticles2D = GPUParticles2D.new()
+	p.amount = amount
+	p.lifetime = lifetime
+	p.preprocess = 0.1
+	p.explosiveness = 0.0
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = emit_radius
+	mat.direction = direction
+	mat.spread = spread
+	mat.gravity = Vector3(0, gravity_y, 0)
+	mat.initial_velocity_min = vel_min
+	mat.initial_velocity_max = vel_max
+	mat.scale_min = scale_min
+	mat.scale_max = scale_max
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, color_start)
+	grad.set_color(1, color_end)
+	var gtex: GradientTexture1D = GradientTexture1D.new()
+	gtex.gradient = grad
+	mat.color_ramp = gtex
+	p.process_material = mat
+	p.emitting = true
+	return p
+
+
+## Quemadura — llamas naranjas ascendentes alrededor del torso.
+func _build_burn_vfx() -> Node2D:
+	var holder: Node2D = Node2D.new()
+	holder.name = "BurnVFX"
+	holder.position = Vector2(0, -30)
+	holder.z_index = 2
+	holder.add_child(_build_particles(
+		Color(1.0, 0.65, 0.15, 0.95), Color(1.0, 0.20, 0.05, 0.0),
+		20, 0.6, 30.0, 30.0, 90.0, -120.0, 12.0, 0.4, 1.2))
+	return holder
+
+
+## Congelación — cristales cyan flotando + caer lento.
+func _build_freeze_vfx() -> Node2D:
+	var holder: Node2D = Node2D.new()
+	holder.name = "FreezeVFX"
+	holder.position = Vector2(0, -30)
+	holder.z_index = 2
+	holder.add_child(_build_particles(
+		Color(0.60, 0.92, 1.0, 0.95), Color(0.30, 0.65, 1.0, 0.0),
+		16, 0.9, 60.0, 8.0, 35.0, 25.0, 14.0, 0.6, 1.4))
+	return holder
+
+
+## Fractura — crack rojizo + glow pulsante sobre torso.
+func _build_fractura_vfx() -> Node2D:
+	var holder: Node2D = Node2D.new()
+	holder.name = "FracturaVFX"
+	holder.position = Vector2(0, -28)
+	holder.z_index = 3
+	# Línea zigzag horizontal simulando crack
+	var crack: Line2D = Line2D.new()
+	crack.width = 2.5
+	crack.default_color = Color(1.0, 0.35, 0.20, 0.95)
+	var pts: PackedVector2Array = PackedVector2Array()
+	var xs: Array = [-10.0, -6.0, -2.0, 2.0, 6.0, 10.0]
+	var ys: Array = [0.0, -3.0, 2.0, -2.0, 3.0, 0.0]
+	for i in range(xs.size()):
+		pts.append(Vector2(xs[i], ys[i]))
+	crack.points = pts
+	holder.add_child(crack)
+	# Glow particles cortas
+	holder.add_child(_build_particles(
+		Color(1.0, 0.5, 0.25, 0.85), Color(0.85, 0.15, 0.05, 0.0),
+		8, 0.5, 180.0, 15.0, 40.0, -10.0, 8.0, 0.4, 0.9))
+	return holder
+
+
+## Desequilibrio — swirl blanco rápido alrededor de cabeza.
+func _build_desequilibrio_vfx() -> Node2D:
+	var holder: Node2D = Node2D.new()
+	holder.name = "DesequilibrioVFX"
+	holder.position = Vector2(0, -55)
+	holder.z_index = 4
+	holder.add_child(_build_particles(
+		Color(0.95, 0.95, 1.0, 0.85), Color(0.6, 0.6, 0.95, 0.0),
+		18, 0.45, 360.0, 60.0, 120.0, 0.0, 14.0, 0.4, 0.9,
+		Vector3(1, 0, 0)))
+	return holder
+
+
+## Bendición Divina — halo dorado pulsante encima cabeza.
+func _build_bendicion_vfx() -> Node2D:
+	var holder: Node2D = Node2D.new()
+	holder.name = "BendicionVFX"
+	holder.position = Vector2(0, -65)
+	holder.z_index = 4
+	# Halo anillo Line2D
+	var ring: Line2D = Line2D.new()
+	ring.width = 2.5
+	ring.default_color = Color(1.0, 0.95, 0.45, 0.85)
+	ring.closed = true
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i in range(24):
+		var ang: float = i * TAU / 24.0
+		pts.append(Vector2(cos(ang) * 12.0, sin(ang) * 4.0))
+	ring.points = pts
+	holder.add_child(ring)
+	# Sparkles dorados
+	holder.add_child(_build_particles(
+		Color(1.0, 0.95, 0.5, 0.9), Color(0.95, 0.75, 0.20, 0.0),
+		10, 0.7, 90.0, 15.0, 35.0, -20.0, 14.0, 0.4, 1.0))
+	return holder
+
+
+## Miasma — aura verde oscura pulsante envolviendo cuerpo.
+func _build_miasma_vfx() -> Node2D:
+	var holder: Node2D = Node2D.new()
+	holder.name = "MiasmaVFX"
+	holder.position = Vector2(0, -30)
+	holder.z_index = 1
+	holder.add_child(_build_particles(
+		Color(0.35, 0.75, 0.25, 0.85), Color(0.10, 0.30, 0.10, 0.0),
+		18, 0.9, 180.0, 8.0, 25.0, -5.0, 18.0, 1.2, 2.4))
+	return holder

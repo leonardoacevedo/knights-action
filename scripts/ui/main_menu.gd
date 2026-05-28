@@ -362,6 +362,11 @@ func _build_confirm_modal(parent: Control) -> void:
 # ─── Handlers de botones ──────────────────────────────────────────────────────
 
 func _on_historia_pressed() -> void:
+	# Modo historia siempre arranca en zona 1. Si una run previa terminó en zona >1,
+	# el autoload StageManager mantenía el valor — forzamos reset acá para que la
+	# nueva run vaya 1→2→3→4 desde el principio (auto-chain en world.gd._on_run_completed).
+	StageManager.reset()
+	StageManager.set_zone(1)
 	get_tree().change_scene_to_file("res://scenes/world.tscn")
 
 

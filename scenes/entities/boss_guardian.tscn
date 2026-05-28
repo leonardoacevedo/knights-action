@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
 [ext_resource type="Script" path="res://scripts/entities/boss_guardian.gd" id="2_boss"]
+[ext_resource type="Script" path="res://scripts/rendering/boss_figure.gd" id="3_figure"]
 
 ; Shapes override boss-only. Sprite escala ~2.0× (rarity_scale R4 1.45 * 1.40),
 ; arma weapon_scale 1.8. Hitboxes acompañan: presencia = colisión.
@@ -27,8 +28,16 @@ position = Vector2(0, -54)
 shape = SubResource("RectangleShape2D_boss_body")
 
 [node name="StickFigure" parent="." index="1"]
-body_color = Color(0.55, 0.65, 0.35, 1)
+script = ExtResource("3_figure")
+body_color = Color(0.42, 0.55, 0.28, 1)
 weapon_scale = 1.8
+figure_style = 1
+head_style = 1
+accent_color = Color(0.32, 0.22, 0.14, 1)
+glow_color = Color(0.65, 0.85, 0.35, 0.55)
+eye_glow_color = Color(0.7, 1.0, 0.4, 1)
+body_scale_mult = 1.15
+signature_weapon = 1
 
 ; Hitbox Area2D base tiene position=(25,-25). Lo movemos a (50,-50) acá para
 ; que el flip de _face_target (abs(hitbox.position.x)*facing en enemy.gd:533)

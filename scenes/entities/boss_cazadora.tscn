@@ -1,8 +1,9 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
 [ext_resource type="Script" path="res://scripts/entities/boss_cazadora.gd" id="2_boss"]
 [ext_resource type="PackedScene" path="res://scenes/projectiles/projectile_arrow.tscn" id="3_arrow"]
+[ext_resource type="Script" path="res://scripts/rendering/boss_figure.gd" id="4_figure"]
 
 ; Hitboxes ~1.4× scale archer. No tiene gravity (override _apply_gravity en script).
 
@@ -27,8 +28,18 @@ position = Vector2(0, -37)
 shape = SubResource("RectangleShape2D_caz_body")
 
 [node name="StickFigure" parent="." index="1"]
-body_color = Color(0.35, 0.55, 0.95, 1)
+script = ExtResource("4_figure")
+body_color = Color(0.30, 0.40, 0.25, 1)
 weapon_scale = 1.4
+figure_style = 0
+head_style = 3
+accent_color = Color(0.55, 0.42, 0.22, 1)
+glow_color = Color(0.5, 0.85, 0.45, 0.5)
+eye_glow_color = Color(0.9, 1.0, 0.4, 1)
+has_cape = true
+cape_color = Color(0.22, 0.18, 0.12, 0.95)
+body_scale_mult = 0.95
+signature_weapon = 6
 
 [node name="Hitbox" parent="." index="3"]
 position = Vector2(35, -37)

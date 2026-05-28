@@ -7,7 +7,7 @@
 [ext_resource type="Script" path="res://scripts/data/stage_data.gd" id="1_stage"]
 [ext_resource type="Script" path="res://scripts/data/enemy_spawn_entry.gd" id="2_entry"]
 [ext_resource type="Resource" path="res://resources/stages/drop_tables/zona4_materials.tres" id="3_drops"]
-[ext_resource type="Resource" path="res://resources/stages/drop_tables/zona2_boss_items.tres" id="4_item_drops"]
+[ext_resource type="Resource" path="res://resources/stages/drop_tables/zona4_boss_items.tres" id="4_item_drops"]
 [ext_resource type="PackedScene" path="res://scenes/entities/boss_vael.tscn" id="5_vael"]
 
 [sub_resource type="Resource" id="Entry_z4boss_placeholder"]

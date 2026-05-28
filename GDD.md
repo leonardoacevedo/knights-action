@@ -1,10 +1,10 @@
-# Knights Action — Documento de Diseño de Juego v2.1
+# Knights Action — Documento de Diseño de Juego v2.2
 
 **Proyecto:** Knights Action (Nombre en clave)
 **Autor:** Leonardo (Leo) — Director Creativo
 **Pipeline de Desarrollo:** AI-First (Claude Code / Cowork para programación, IA generativa para arte)
-**Fecha:** 21 de Mayo de 2026
-**Estado:** Pre-producción
+**Fecha:** 28 de Mayo de 2026 (v2.2 — sync 6 elementos canon)
+**Estado:** Pre-producción / Fase 3 en desarrollo
 
 ---
 
@@ -140,14 +140,62 @@ El tier del ítem dicta su potencial máximo y la cantidad de afijos (stats secu
 
 ### 5.3 Elementos
 
-Sistema clásico de fortalezas y debilidades. En MVP: **Tierra, Fuego, Agua**. Post-launch: Viento, Rayo, Sombra.
+Sistema de fortalezas y debilidades con **dos ejes ortogonales** (canon definitivo v2.2 — decisión Leo 27/05/2026).
 
-Triángulo elemental MVP:
-- Fuego > Tierra
-- Tierra > Agua
-- Agua > Fuego
+**6 elementos canon:** FUEGO (1), AGUA (2), TIERRA (3), VIENTO (4), LUZ (5), SOMBRA (6). NEUTRO (0) sin ventaja/desventaja. ~~RAYO~~ descartado — el slot semántico de "CC duro corto" (stun visual) lo ocupa LUZ.
 
-Daño con ventaja elemental: ×1.5. Daño con desventaja: ×0.66.
+#### Eje natural — control + daño elemental puro
+
+Triángulo primario:
+- **Fuego > Tierra**
+- **Tierra > Agua**
+- **Agua > Fuego**
+- VIENTO independiente dentro de este eje (no entra al triángulo).
+
+#### Eje cósmico — alteración de stats, supervivencia, maldiciones
+
+Triángulo secundario:
+- **Viento > Luz**
+- **Luz > Sombra**
+- **Sombra > Viento**
+
+#### Modificadores de daño
+
+| Relación | Multiplicador |
+| :--- | :---: |
+| Ventaja (dentro de su triángulo) | **×1.5** |
+| Desventaja (dentro de su triángulo) | **×0.66** |
+| Cross-triángulo (ej. FUEGO vs LUZ) | ×1.0 neutral |
+| Mismo elemento | ×1.0 |
+| NEUTRO involucrado (cualquier lado) | ×1.0 |
+
+#### Status Synergy on-hit (30% chance base)
+
+Cada golpe con elemento no-NEUTRO tiene **30% chance** de aplicar status:
+
+| Elemento | Status | Efecto |
+| :--- | :--- | :--- |
+| **FUEGO** | Quemadura | DOT 3s, 3 dmg/tick |
+| **AGUA** | Congelación | -30% velocidad / 2s |
+| **TIERRA** | Fractura | próximo golpe recibido +20%, **single-use**, ventana 5s |
+| **VIENTO** | Desequilibrio | interrumpe ataque actual + 1.5s CD penalty |
+| **LUZ** | Bendición Divina | vampire heal — atacante recupera 5% HP máx (NO aplica status al defender) |
+| **SOMBRA** | Miasma | DOT 5s 2 dmg/tick + **bypass armor** + -50% Furia gen del defensor |
+
+LUZ es la excepción: efecto va al **atacante** (heal source), no al defender. SOMBRA stack mode INDEPENDENT — snowballea lategame.
+
+#### Implicación gameplay por elemento
+
+- **FUEGO** — DOT sostenido suma a daño base. Sinérgico con armas rápidas.
+- **AGUA** — kiteo fácil. Enemies ralentizados 2s con cada golpe.
+- **TIERRA** — combo: aplicar Fractura + golpear con build físico/elemental fuerte = ventaja masiva.
+- **VIENTO** — control puro. Enemies con casts largos se ven cancelados sistemáticamente.
+- **LUZ** — sustain. Vampirismo permite agresión sostenida sin retroceder.
+- **SOMBRA** — presión. DOT que ignora armor + ahoga Furia del enemy. Target no puede limpiar el stack.
+
+Implementación: `GameConfig.ELEMENT_ADVANTAGE` (doble triángulo), `HitboxComponent._try_apply_element_status`, `Projectile._try_apply_element_status`. Status data en `resources/status_effects/{burn,freeze,vulnerable,desequilibrio,bendicion,poison}.tres`.
+
+> **Nota canon:** filenames legacy `vulnerable.tres` → id `fractura` y `poison.tres` → id `miasma`. Mismatch intencional, no romper.
 
 ### 5.4 Afinidad de Equipo (Set Bonuses)
 
@@ -350,7 +398,7 @@ Sistema clásico. Recompensas cosméticas y de prestigio.
 
 - ✅ Combate base completo con Momentum.
 - ✅ 1 zona PvE (Valle de los Ecos) con 6 etapas + boss.
-- ✅ 3 elementos (Tierra, Fuego, Agua) en equipamiento.
+- ✅ 6 elementos (FUEGO, AGUA, TIERRA, VIENTO, LUZ, SOMBRA) en equipamiento — sync v2.2.
 - ✅ Rarezas R1-R3 (sin R4).
 - ✅ Árbol de skills con ~30 nodos.
 - ✅ Crafteo y fusión básica.
@@ -364,7 +412,7 @@ Sistema clásico. Recompensas cosméticas y de prestigio.
 
 - ❌ Zonas 2 y 3 (Fuego y Agua como elementos principales).
 - ❌ Rareza R4 Legendaria.
-- ❌ Elementos Viento, Rayo, Sombra.
+- ~~Elementos Viento, Rayo, Sombra~~ → **Movidos al MVP en v2.2** (canon 27/05). RAYO descartado, slot ocupado por LUZ.
 - ❌ Sistema de Reliquias (roguelite-lite).
 - ❌ Logros y cosméticos.
 - ❌ Eventos de temporada en Coliseo.
@@ -479,3 +527,12 @@ Este GDD es un **documento vivo**. Va a cambiar a medida que se implementen sist
 > *"Si lo que diseñé acá no se siente bien al jugarlo, gana el playtest, no el documento."*
 
 Cualquier cambio significativo se versiona (v2.1, v2.2, etc.) y se documenta el porqué.
+
+---
+
+## Changelog
+
+| Versión | Fecha | Cambio | Razón |
+| :--- | :--- | :--- | :--- |
+| v2.1 | 21/05/2026 | Versión inicial post-setup de proyecto | Documentar pilares + scope MVP. |
+| **v2.2** | **28/05/2026** | **§5.3 6 elementos canon (FUEGO/AGUA/TIERRA/VIENTO/LUZ/SOMBRA). Dual triangle eje natural vs cósmico. Status synergy on-hit 30%.** | Sync con código implementado 27/05. RAYO descartado, slot ocupado por LUZ. Eje cósmico (LUZ/SOMBRA) tema "santidad vs maldad" complementa eje natural (control + daño puro). MVP scope §11 actualizado para incluir 6 elementos. |

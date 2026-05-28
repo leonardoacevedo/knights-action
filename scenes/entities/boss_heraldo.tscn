@@ -1,8 +1,9 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" uid="uid://c5qx2rj8wnpm4" path="res://scenes/entities/enemy.tscn" id="1_base"]
 [ext_resource type="Script" path="res://scripts/entities/boss_heraldo.gd" id="2_boss"]
 [ext_resource type="PackedScene" path="res://scenes/projectiles/projectile_fireball.tscn" id="3_fireball"]
+[ext_resource type="Script" path="res://scripts/rendering/boss_figure.gd" id="4_figure"]
 
 ; Hitboxes ~1.8× scale mage. Cuerpo grande, tanque.
 
@@ -27,8 +28,18 @@ position = Vector2(0, -46)
 shape = SubResource("RectangleShape2D_her_body")
 
 [node name="StickFigure" parent="." index="1"]
-body_color = Color(0.45, 0.2, 0.65, 1)
+script = ExtResource("4_figure")
+body_color = Color(0.25, 0.10, 0.40, 1)
 weapon_scale = 1.7
+figure_style = 0
+head_style = 3
+accent_color = Color(0.65, 0.35, 0.95, 1)
+glow_color = Color(0.7, 0.4, 1.0, 0.65)
+eye_glow_color = Color(0.95, 0.65, 1.0, 1)
+has_cape = true
+cape_color = Color(0.15, 0.05, 0.28, 0.95)
+body_scale_mult = 1.1
+signature_weapon = 7
 
 [node name="Hitbox" parent="." index="3"]
 position = Vector2(45, -45)

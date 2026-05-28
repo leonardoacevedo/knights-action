@@ -104,22 +104,25 @@ const BG_TEXTURES: Dictionary = {
 	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_bgb_mediodia_1920x1080.png"),
 	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_bgc_atardecer_1920x1080.png"),
 }
+## MID nuevos (28/05): Gemini regen — 2752x1536 reales (aspect 16:9 OK), alpha real.
+## Filenames mantienen "1280x720" como nombre canónico (tamaño pedido).
 const MID_TEXTURES: Dictionary = {
-	"a": preload("res://assets/art/zona1/backgrounds/bg_valle_mida_ruinas_1920x1080.png"),
-	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1920x1080.png"),
-	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1920x1080.png"),
+	"a": preload("res://assets/art/zona1/backgrounds/bg_valle_mida_ruinas_1280x720.png"),
+	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1280x720.png"),
+	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_midb_bosque_1280x720.png"),
 }
 ## ForeTop = ramas colgantes arriba. Solo aparecen en sub-zonas con bosque (b y c).
 ## En sub-zona "a" (ruinas abiertas) ocultamos la capa — visible toggle.
+## Nuevos (28/05): 3904x1088 reales (aspect 32:9 tira horizontal), alpha real.
 const FORE_TOP_TEXTURES: Dictionary = {
 	"a": null,
-	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1920x1080.png"),
-	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1920x1080.png"),
+	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1280x360.png"),
+	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_foreb_ramas_1280x360.png"),
 }
 const FORE_BOTTOM_TEXTURES: Dictionary = {
-	"a": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1920x1080.png"),
-	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1920x1080.png"),
-	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1920x1080.png"),
+	"a": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1280x360.png"),
+	"b": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1280x360.png"),
+	"c": preload("res://assets/art/zona1/backgrounds/bg_valle_forea_hierba_1280x360.png"),
 }
 
 ## Plataformas default del .tscn — escondidas cuando un stage tiene overrides.
@@ -131,55 +134,56 @@ var _override_platforms: Array[Node2D] = []
 # ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 func _ready() -> void:
-# --- FIX BUG ASSETS BG (BLANCO A ALPHA) ---
-	var white_alpha_shader = preload("res://assets/shaders/white_to_alpha.gdshader")
-	var bg_material = ShaderMaterial.new()
-	bg_material.shader = white_alpha_shader
-	
-	if _mid_sprite != null:
-		_mid_sprite.material = bg_material
-	if _fore_top_sprite != null:
-		_fore_top_sprite.material = bg_material
-	if _fore_bottom_sprite != null:
-		_fore_bottom_sprite.material = bg_material
-	# ------------------------------------------
+	# Shader white_to_alpha removido el 28/05: PNGs nuevos de Gemini ya vienen
+	# con alpha real. El shader sigue disponible en assets/shaders/ por si
+	# en zonas futuras se generan PNGs sin alpha y hay que reactivarlo.
 
-# --- FIX ESCALA Y POSICIÓN DE BACKGROUNDS ---
-	# SE CAMBIÓ DE 0.6 A 1.0. Esto hará que el fondo se vea más grande y proporcional.
-	# El alto original (1080) ahora se mostrará a escala completa en tu ventana (648).
-	var custom_scale_bg := Vector2(0.6, 0.4)
-	var custom_scale_mid := Vector2(0.6, 0.4)
-	var custom_scale_fore_top := Vector2(0.56, 0.45)
-	var custom_scale_fore_bottom := Vector2(0.56, 0.4)
+	# --- ESCALA Y POSICIÓN DE BACKGROUNDS (refactor 28/05 v2) ---
+	# Aspect ratio preservado (scale uniforme X=Y) — antes se rompía.
+	# Tamaños PNG reales (post-Gemini v2, watermark removida):
+	#   BG = 1920×1080 (mantenido grande para parallax lejano)
+	#   MID = 2400×1340 (aspect 16:9 ≈)
+	#   FORE_TOP/BOTTOM = 2400×669 (aspect 32:9, tira horizontal)
+	# Viewport Godot default = 1152×648.
+	var scale_bg: float = 0.6        # 1920×0.6 = 1152 (match viewport ancho)
+	var scale_mid: float = 0.50      # 2400×0.50 = 1200 (margen 48px parallax)
+	var scale_fore: float = 0.50     # 2400×0.50 = 1200 (margen 48px parallax)
 
-	# Ajusta este valor en positivo para empujar el fondo hacia el piso.
-	# Si las raíces aún flotan, súbelo (ej. 200). Si se hunden mucho, bájalo (ej. 100).
-	var custom_offset_x_bg: float = 490.0
-	var custom_offset_y_bg: float = 250.0
-	var custom_offset_x_mid: float = 180.0
-	var custom_offset_y_mid: float = 300.0
-	var custom_offset_x_fore_top: float = 160.0
-	var custom_offset_y_fore_top: float = 160.0
-	var custom_offset_x_fore_bottom: float = 120.0
-	var custom_offset_y_fore_bottom: float = 350.0
+	# Position X = 0: respetar centro del ParallaxLayer (no desplazar).
+	# Position Y por capa: aproxima dónde se ancla visualmente cada capa.
+	# Tunear si en playtest la composición se ve corrida vertical.
+	var offset_y_bg: float = -250.0       # cielo abarca alto viewport
+	var offset_y_mid: float = -300.0      # mid distance, centrado vertical
+	var offset_y_fore_top: float = -480.0 # tira anclada arriba
+	var offset_y_fore_bottom: float = -80.0 # tira anclada piso
 
 	if _bg_sprite != null:
-		_bg_sprite.scale = custom_scale_bg
-		_bg_sprite.position.x = custom_offset_x_bg
-		_bg_sprite.position.y = custom_offset_y_bg
+		_bg_sprite.scale = Vector2(scale_bg, scale_bg)
+		_bg_sprite.position = Vector2(0, offset_y_bg)
 	if _mid_sprite != null:
-		_mid_sprite.scale = custom_scale_mid
-		_mid_sprite.position.x = custom_offset_x_mid
-		_mid_sprite.position.y = custom_offset_y_mid
+		_mid_sprite.scale = Vector2(scale_mid, scale_mid)
+		_mid_sprite.position = Vector2(0, offset_y_mid)
 	if _fore_top_sprite != null:
-		_fore_top_sprite.scale = custom_scale_fore_top
-		_fore_top_sprite.position.x = custom_offset_x_fore_top
-		_fore_top_sprite.position.y = custom_offset_y_fore_top
+		_fore_top_sprite.scale = Vector2(scale_fore, scale_fore)
+		_fore_top_sprite.position = Vector2(0, offset_y_fore_top)
 	if _fore_bottom_sprite != null:
-		_fore_bottom_sprite.scale = custom_scale_fore_bottom
-		_fore_bottom_sprite.position.x = custom_offset_x_fore_bottom
-		_fore_bottom_sprite.position.y = custom_offset_y_fore_bottom
-	# ---------------------------------------------
+		_fore_bottom_sprite.scale = Vector2(scale_fore, scale_fore)
+		_fore_bottom_sprite.position = Vector2(0, offset_y_fore_bottom)
+
+	# Motion mirroring: ajustar a width post-scale por capa para evitar gaps
+	# al cruzar el lado del mirror. Cada ParallaxLayer mirror = sprite width × scale.
+	var bg_layer: ParallaxLayer = $ParallaxBackground/LayerBG
+	var mid_layer: ParallaxLayer = $ParallaxBackground/LayerMid
+	var ft_layer: ParallaxLayer = $ParallaxBackground/LayerForeTop
+	var fb_layer: ParallaxLayer = $ParallaxBackground/LayerForeBottom
+	if bg_layer != null:
+		bg_layer.motion_mirroring = Vector2(1920.0 * scale_bg, 0)    # 1152
+	if mid_layer != null:
+		mid_layer.motion_mirroring = Vector2(2400.0 * scale_mid, 0)  # 1200
+	if ft_layer != null:
+		ft_layer.motion_mirroring = Vector2(2400.0 * scale_fore, 0)  # 1200
+	if fb_layer != null:
+		fb_layer.motion_mirroring = Vector2(2400.0 * scale_fore, 0)  # 1200
 
 	# Instanciar la loot card y agregarla al árbol.
 	# Se hace aquí (no en world.tscn) para evitar editar UIDs del .tscn a mano.
@@ -247,8 +251,27 @@ func _on_stage_cleared(_index: int) -> void:
 
 
 func _on_run_completed() -> void:
-	# Hook para futuro: pantalla de victoria total, rewards de zona.
-	pass
+	# Zone chaining: zona 1 → 2 → 3 → 4. Cuando el último stage de la zona muere,
+	# si hay zona siguiente disponible, avanzamos. Si era la zona 4 (final), volvemos al menú.
+	# Modo prueba (TestArenaConfig) no avanza zona — termina en pantalla de menú.
+	if TestArenaConfig.is_test_mode:
+		await get_tree().create_timer(2.5).timeout
+		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+		return
+	var current_zone: int = StageManager.current_zone if StageManager != null else 1
+	var next_zone: int = current_zone + 1
+	if StageManager.ZONE_STAGE_PATHS.has(next_zone):
+		# Espera a que el banner de VICTORIA muestre, luego carga la próxima zona.
+		await get_tree().create_timer(3.0).timeout
+		StageManager.reset()
+		StageManager.set_zone(next_zone)
+		get_tree().change_scene_to_file("res://scenes/world.tscn")
+	else:
+		# Última zona completada → volver al menú principal.
+		await get_tree().create_timer(3.5).timeout
+		StageManager.reset()
+		StageManager.set_zone(1)  # reset al menu para próxima run
+		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
 # ─── Spawn de stage data-driven ───────────────────────────────────────────────
@@ -273,6 +296,10 @@ func _spawn_stage(data: StageData) -> void:
 				var boss_override: PackedScene = _boss_scene_for_class(entry.enemy_class)
 				if boss_override != null:
 					scene = boss_override
+		# Mini-boss override (28/05): si stage marcado is_mini_boss + tiene scene override,
+		# usar override para cualquier rareza (Capitán Z4E3 = R3 con scene custom).
+		elif data.is_mini_boss and data.boss_scene_override != null:
+			scene = data.boss_scene_override
 		if scene == null:
 			push_warning("World: scene null para clase %d." % entry.enemy_class)
 			continue

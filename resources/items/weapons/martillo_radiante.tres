@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://scripts/data/affix_data.gd" id="2_affixdata"]
+
+[sub_resource type="Resource" id="Affix_hp"]
+script = ExtResource("2_affixdata")
+stat_id = &"hp"
+display_name = "Vida"
+value = 19
+
+[sub_resource type="Resource" id="Affix_atkspd"]
+script = ExtResource("2_affixdata")
+stat_id = &"attack_speed"
+display_name = "Velocidad de Ataque"
+value = 5
+
+[sub_resource type="Resource" id="Affix_def"]
+script = ExtResource("2_affixdata")
+stat_id = &"defense"
+display_name = "Defensa"
+value = 9
+
+[resource]
+script = ExtResource("1_itemdata")
+id = &"martillo_radiante"
+display_name = "Martillo Radiante"
+description = "Cabeza de oro puro forjada en luz. Bendice al portador, ciega al enemigo."
+slot = 0
+rarity = 2
+element = 5
+stat_main = 51
+refinement_level = 0
+affixes = [SubResource("Affix_hp"), SubResource("Affix_atkspd"), SubResource("Affix_def")]
+visual_type = 4

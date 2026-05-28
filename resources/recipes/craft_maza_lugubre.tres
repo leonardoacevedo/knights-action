@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="CraftRecipe" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/craft_recipe.gd" id="1_recipe"]
+[ext_resource type="Script" path="res://scripts/data/craft_recipe_input.gd" id="2_input"]
+[ext_resource type="Resource" path="res://resources/materials/gota_lamento.tres" id="3_gota"]
+[ext_resource type="Resource" path="res://resources/materials/cristal_escarcha.tres" id="4_cristal"]
+[ext_resource type="Resource" path="res://resources/materials/mineral_hierro_rojo.tres" id="5_hierro"]
+[ext_resource type="Resource" path="res://resources/items/weapons/maza_lugubre.tres" id="6_output"]
+
+[sub_resource type="Resource" id="Input_gota"]
+script = ExtResource("2_input")
+material = ExtResource("3_gota")
+count = 4
+
+[sub_resource type="Resource" id="Input_cristal"]
+script = ExtResource("2_input")
+material = ExtResource("4_cristal")
+count = 2
+
+[sub_resource type="Resource" id="Input_hierro"]
+script = ExtResource("2_input")
+material = ExtResource("5_hierro")
+count = 2
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_maza_lugubre"
+display_name = "Forjar Maza Lúgubre"
+description = "Maza SOMBRA R2. Cabeza envuelta en miasma negra que devora la luz."
+inputs = [SubResource("Input_gota"), SubResource("Input_cristal"), SubResource("Input_hierro")]
+output_item = ExtResource("6_output")
+gold_cost = 470
+required_player_level = 22

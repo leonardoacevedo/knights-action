@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="CraftRecipe" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/craft_recipe.gd" id="1_recipe"]
+[ext_resource type="Script" path="res://scripts/data/craft_recipe_input.gd" id="2_input"]
+[ext_resource type="Resource" path="res://resources/materials/pluma_tormenta.tres" id="3_pluma"]
+[ext_resource type="Resource" path="res://resources/materials/fragmento_cielo_roto.tres" id="4_cielo"]
+[ext_resource type="Resource" path="res://resources/items/weapons/arco_solar.tres" id="5_output"]
+
+[sub_resource type="Resource" id="Input_pluma"]
+script = ExtResource("2_input")
+material = ExtResource("3_pluma")
+count = 3
+
+[sub_resource type="Resource" id="Input_cielo"]
+script = ExtResource("2_input")
+material = ExtResource("4_cielo")
+count = 2
+
+[resource]
+script = ExtResource("1_recipe")
+id = &"craft_arco_solar"
+display_name = "Tensar Arco Solar"
+description = "Arco LUZ R2. Cuerda de luz dorada. Cada flecha lleva un fragmento del amanecer."
+inputs = [SubResource("Input_pluma"), SubResource("Input_cielo")]
+output_item = ExtResource("5_output")
+gold_cost = 400
+required_player_level = 20

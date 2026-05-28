@@ -12,6 +12,10 @@ class_name Enemy
 ## Para apagar/prender globalmente: editar GameConfig (archivo .env).
 var DEBUG_ENABLED: bool = false
 
+## State machine del enemy.
+## HURT: reservado para futura implementación de i-frames del enemy tras recibir daño
+## (decisión pendiente sugerencias.md 25/05). Hoy nadie setea State.HURT — el check
+## defensivo en _physics_process línea ~469 cubre el caso si se activa en futuro.
 enum State { IDLE, CHASE, TELEGRAPH, ATTACK, RECOVERY, HURT, DEAD, BLOCK, DODGE, SKILL_TELEGRAPH, SKILL_ATTACK, R2_SKILL_TELEGRAPH, R2_SKILL_ATTACK }
 
 # Stats variables — seteados en _ready() desde GameConfig según enemy_class.
@@ -217,6 +221,10 @@ const R2_TANK_TAUNT_DURATION: float = 3.0
 ## el player intenta hacer a sus aliados dentro del radio. Mecánica clara y firme:
 ## "romper al tank o no pegarle a nadie en su zona".
 const R2_TANK_TAUNT_REDIRECT: float = 1.0
+## Rango máximo al player para activar el taunt (px). ~2-3 enemies de ancho.
+## Cambio 28/05: antes usaba detect_range*0.8 (~400px) — taunt activaba desde lejos.
+## Ahora el tank debe estar cerca del player para gritar/provocar.
+const R2_TANK_TAUNT_PLAYER_RANGE: float = 180.0
 
 ## Tabla de configuración del skill R2 por clase. **Fallback defensivo** desde 27/05:
 ## la source of truth migró a `resources/enemy_skills/r2_{clase}.tres` cargado en
@@ -511,9 +519,9 @@ func _tick_state(delta: float) -> void:
 			if (rarity == GameConfig.EnemyRarity.R2 or rarity == GameConfig.EnemyRarity.R3) \
 					and _skill_r2_cooldown <= 0.0 and is_on_floor():
 				var r2_range_ok: bool = dist < detect_range * 0.6
-				# Tank usa rango más amplio (el taunt es area, no proyectil).
+				# Tank: taunt solo si player está cerca (~2-3 enemies). Nada de provocar desde lejos.
 				if enemy_class == GameConfig.EnemyClass.TANK:
-					r2_range_ok = dist < detect_range * 0.8
+					r2_range_ok = dist < R2_TANK_TAUNT_PLAYER_RANGE
 				if r2_range_ok:
 					_change_state(State.R2_SKILL_TELEGRAPH)
 					return
@@ -590,8 +598,14 @@ func _tick_state(delta: float) -> void:
 				var should_active: bool = _state_timer >= ATTACK_ACTIVE_START and _state_timer <= ATTACK_ACTIVE_END
 				if hitbox.monitoring != should_active:
 					hitbox.set_active(should_active)
+				# Animar polígono del swing durante la ventana activa.
+				if should_active:
+					var win: float = max(ATTACK_ACTIVE_END - ATTACK_ACTIVE_START, 0.001)
+					var p: float = clamp((_state_timer - ATTACK_ACTIVE_START) / win, 0.0, 1.0)
+					hitbox.update_swing_arc(p, current_facing)
 			if _state_timer >= ATTACK_DURATION:
 				hitbox.set_active(false)
+				hitbox.clear_swing_shape()
 				_projectile_fired_this_attack = false
 				_change_state(State.RECOVERY)
 
@@ -706,6 +720,18 @@ func _change_state(new_state: State) -> void:
 		State.TELEGRAPH:
 			# Telegraph normal del ataque base.
 			sprite.start_telegraph(telegraph_seconds)
+
+		State.ATTACK:
+			# Configurar hitbox de swing según clase implícita. Melee=SWORD, Tank=HAMMER.
+			# Archer/Mage no necesitan (son ranged, ATTACK spawnea proyectil).
+			if not _is_ranged():
+				var vt: int = _implicit_weapon_visual_type()
+				# Scale: sprite.scale (rarity_scale) * sprite.weapon_scale (boss boost).
+				# Coincide con el visual del arma para hitbox honesto (Pilar #2).
+				var scale_mult: float = 1.0
+				if sprite != null:
+					scale_mult = sprite.scale.x * sprite.weapon_scale
+				hitbox.setup_weapon_swing(vt, 0.0, 0.0, 0.0, 0.0, scale_mult)
 
 		State.BLOCK:
 			# R2: entrar al bloqueo — 1 carga real, aura azul, duración aleatoria.
@@ -1314,6 +1340,15 @@ func _is_ranged() -> bool:
 		or enemy_class == GameConfig.EnemyClass.MAGE
 
 
+## Mapea enemy_class → visual_type implícito para hitbox de swing.
+## Melee=Sword(1), Tank=Hammer(4). Archer/Mage no usan (ranged).
+## Bosses pueden override este método (ej. Guardian Tank usa HAMMER pero quiere reach mayor).
+func _implicit_weapon_visual_type() -> int:
+	match enemy_class:
+		GameConfig.EnemyClass.TANK: return 4  # HAMMER
+		_: return 1  # SWORD por default (Melee)
+
+
 func _spawn_projectile() -> void:
 	# Instancia el proyectil asignado en @export y lo lanza hacia el target.
 	if projectile_scene == null:
@@ -1402,9 +1437,11 @@ func _r3_enter_skill_attack_by_class() -> void:
 		GameConfig.EnemyClass.ARCHER:
 			_r3_setup_lluvia_positions(70.0)  # 3 flechas con spread 70px
 			_r3_spawn_aoe_telegraphs(Color(1.0, 0.85, 0.2, 0.55))
+			_r3_spawn_lluvia_visuals(false)  # flechas cayendo desde el cielo
 		GameConfig.EnemyClass.MAGE:
 			_r3_setup_lluvia_positions(80.0)  # 3 meteoros con spread 80px
 			_r3_spawn_aoe_telegraphs(Color(1.0, 0.3, 0.1, 0.55))
+			_r3_spawn_lluvia_visuals(true)   # meteoros cayendo desde el cielo
 		GameConfig.EnemyClass.TANK:
 			_r3_apply_muralla_estatica()
 
@@ -1487,6 +1524,183 @@ func _r3_apply_lluvia_damage(apply_burn: bool) -> void:
 					var se: StatusEffectComponent = defender.get_node_or_null("StatusEffects") as StatusEffectComponent
 					if se != null:
 						se.apply(burn_data, self)
+
+
+## Spawna proyectiles visuales cayendo desde el cielo en cada `_r3_drop_positions`.
+## Si `is_meteor` true → meteoro naranja con trail. Si false → flecha vertical.
+## El proyectil aterriza en sync con `R3_LLUVIA_DROP_TIME` (mismo timing que el damage).
+## Al aterrizar invoca `_spawn_aoe_impact_burst` para el flash de impacto.
+func _r3_spawn_lluvia_visuals(is_meteor: bool) -> void:
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		return
+	var fall_height: float = 480.0
+	var fall_time: float = R3_LLUVIA_DROP_TIME
+	for pos: Vector2 in _r3_drop_positions:
+		var holder: Node2D = Node2D.new()
+		holder.z_index = 3
+		holder.global_position = Vector2(pos.x, pos.y - fall_height)
+		scene_root.add_child(holder)
+		if is_meteor:
+			_build_meteor_visual(holder)
+		else:
+			_build_arrow_visual(holder)
+		var land_pos: Vector2 = pos
+		var burst_color: Color
+		var burst_intensity: float
+		if is_meteor:
+			burst_color = Color(1.0, 0.45, 0.1, 0.95)
+			burst_intensity = 1.1
+		else:
+			burst_color = Color(1.0, 0.9, 0.3, 0.95)
+			burst_intensity = 0.8
+		var tween: Tween = scene_root.create_tween()
+		tween.tween_property(holder, "global_position", land_pos, fall_time) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.tween_callback(func() -> void:
+			if is_instance_valid(holder):
+				_spawn_aoe_impact_burst(holder.global_position, burst_color, burst_intensity)
+				holder.queue_free()
+		)
+
+
+## Construye una flecha vertical (cuerpo + punta + plumas) como hijo de `parent`.
+## Forma apunta hacia abajo (punta en +Y). Sin sprite — todo Polygon2D procedural.
+func _build_arrow_visual(parent: Node2D) -> void:
+	# Cuerpo (vara)
+	var body: Polygon2D = Polygon2D.new()
+	body.color = Color(0.6, 0.4, 0.18, 1.0)
+	body.polygon = PackedVector2Array([
+		Vector2(-2, -28), Vector2(2, -28), Vector2(2, 18), Vector2(-2, 18),
+	])
+	parent.add_child(body)
+	# Punta metálica apuntando hacia abajo
+	var tip: Polygon2D = Polygon2D.new()
+	tip.color = Color(0.85, 0.85, 0.95, 1.0)
+	tip.polygon = PackedVector2Array([
+		Vector2(-7, 16), Vector2(7, 16), Vector2(0, 34),
+	])
+	parent.add_child(tip)
+	# Plumas izquierda/derecha arriba
+	var feather_l: Polygon2D = Polygon2D.new()
+	feather_l.color = Color(0.95, 0.2, 0.2, 0.95)
+	feather_l.polygon = PackedVector2Array([
+		Vector2(-2, -28), Vector2(-10, -34), Vector2(-2, -16),
+	])
+	parent.add_child(feather_l)
+	var feather_r: Polygon2D = Polygon2D.new()
+	feather_r.color = Color(0.95, 0.2, 0.2, 0.95)
+	feather_r.polygon = PackedVector2Array([
+		Vector2(2, -28), Vector2(10, -34), Vector2(2, -16),
+	])
+	parent.add_child(feather_r)
+
+
+## Construye un meteoro (core naranja + glow amarillo + trail particles ascendente).
+## El trail sale "hacia arriba" desde el meteoro — mientras cae se ve como fuego dejando estela.
+func _build_meteor_visual(parent: Node2D) -> void:
+	var segments: int = 16
+	# Core naranja sólido
+	var core: Polygon2D = Polygon2D.new()
+	core.color = Color(1.0, 0.45, 0.1, 1.0)
+	var core_pts: PackedVector2Array = PackedVector2Array()
+	for i in range(segments):
+		var ang: float = i * TAU / float(segments)
+		core_pts.append(Vector2(cos(ang), sin(ang)) * 14.0)
+	core.polygon = core_pts
+	parent.add_child(core)
+	# Glow amarillo exterior translúcido
+	var glow: Polygon2D = Polygon2D.new()
+	glow.color = Color(1.0, 0.85, 0.2, 0.5)
+	var glow_pts: PackedVector2Array = PackedVector2Array()
+	for i in range(segments):
+		var ang2: float = i * TAU / float(segments)
+		glow_pts.append(Vector2(cos(ang2), sin(ang2)) * 22.0)
+	glow.polygon = glow_pts
+	parent.add_child(glow)
+	# Trail fuego ascendente
+	var trail: GPUParticles2D = GPUParticles2D.new()
+	trail.amount = 28
+	trail.lifetime = 0.45
+	trail.preprocess = 0.15
+	trail.explosiveness = 0.0
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 8.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 25.0
+	mat.gravity = Vector3.ZERO
+	mat.initial_velocity_min = 40.0
+	mat.initial_velocity_max = 80.0
+	mat.scale_min = 0.6
+	mat.scale_max = 1.4
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(1.0, 0.85, 0.2, 1.0))
+	grad.set_color(1, Color(1.0, 0.3, 0.05, 0.0))
+	var gtex: GradientTexture1D = GradientTexture1D.new()
+	gtex.gradient = grad
+	mat.color_ramp = gtex
+	trail.process_material = mat
+	trail.emitting = true
+	parent.add_child(trail)
+
+
+## Burst expansivo + particles al impactar AoE. Reutilizable por Lluvia/Nova/Erupción.
+## `intensity` escala tamaño/cantidad. `color` define tono del flash.
+func _spawn_aoe_impact_burst(pos: Vector2, color: Color, intensity: float = 1.0) -> void:
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		return
+	var holder: Node2D = Node2D.new()
+	holder.global_position = pos
+	holder.z_index = 4
+	scene_root.add_child(holder)
+	# Anillo expansivo Line2D
+	var ring: Line2D = Line2D.new()
+	ring.width = 4.0 * intensity
+	ring.default_color = color
+	ring.closed = true
+	var ring_pts: PackedVector2Array = PackedVector2Array()
+	var ring_segments: int = 24
+	for i in range(ring_segments):
+		var ang: float = i * TAU / float(ring_segments)
+		ring_pts.append(Vector2(cos(ang), sin(ang)) * 14.0)
+	ring.points = ring_pts
+	holder.add_child(ring)
+	# Burst de partículas (one-shot explosivo)
+	var burst: GPUParticles2D = GPUParticles2D.new()
+	burst.amount = int(round(20.0 * intensity))
+	burst.lifetime = 0.5
+	burst.explosiveness = 1.0
+	burst.one_shot = true
+	burst.emitting = true
+	var bmat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	bmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	bmat.emission_sphere_radius = 6.0
+	bmat.direction = Vector3(0, -1, 0)
+	bmat.spread = 180.0
+	bmat.gravity = Vector3(0, 220, 0)
+	bmat.initial_velocity_min = 70.0 * intensity
+	bmat.initial_velocity_max = 150.0 * intensity
+	bmat.scale_min = 0.5
+	bmat.scale_max = 1.3
+	var bgrad: Gradient = Gradient.new()
+	bgrad.set_color(0, color)
+	bgrad.set_color(1, Color(color.r, color.g, color.b, 0.0))
+	var btex: GradientTexture1D = GradientTexture1D.new()
+	btex.gradient = bgrad
+	bmat.color_ramp = btex
+	burst.process_material = bmat
+	holder.add_child(burst)
+	# Tween: anillo escala + fade, luego destruye
+	var tween: Tween = scene_root.create_tween().set_parallel(true)
+	tween.tween_property(holder, "scale", Vector2.ONE * (3.2 * intensity), 0.4) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring, "modulate:a", 0.0, 0.4)
+	tween.chain().tween_callback(func() -> void:
+		if is_instance_valid(holder):
+			holder.queue_free()
+	)
 
 
 ## Tank R3: aplica status muralla_estatica durante R3_MURALLA_DURATION + aura azul.
@@ -1975,6 +2189,8 @@ func _tick_r2_salto_asalto(r2_duration: float) -> void:
 		var dmg: int = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
 			* _r2_skill_data.damage_mult))
 		_r2_apply_radial_damage(global_position, _r2_param("landing_radius", 75.0), dmg)
+		# Burst de impacto en landing — gesto visual del aterrizaje.
+		_spawn_aoe_impact_burst(global_position, Color(1.0, 0.55, 0.1, 0.95), 1.1)
 		# Knockback al player si cerca.
 		if _target != null and _target.has_method("apply_external_velocity") \
 				and global_position.distance_to(_target.global_position) < _r2_param("landing_radius", 75.0):
@@ -2007,6 +2223,7 @@ func _tick_r2_nova_hielo(r2_duration: float) -> void:
 			* _r2_skill_data.damage_mult))
 		_r2_apply_radial_damage_with_status(_r2_aoe_pos, _r2_param("radius", 70.0), dmg, \
 			load("res://resources/status_effects/freeze.tres") as StatusEffectData)
+		_spawn_aoe_impact_burst(_r2_aoe_pos, Color(0.55, 0.9, 1.0, 0.95), 1.2)
 	if _state_timer >= r2_duration:
 		_finish_r2_skill()
 
@@ -2030,6 +2247,7 @@ func _tick_r2_erupcion_terrestre(r2_duration: float) -> void:
 			* _r2_skill_data.damage_mult))
 		_r2_apply_radial_damage_with_status(_r2_aoe_pos, _r2_param("radius", 50.0), dmg, \
 			load("res://resources/status_effects/vulnerable.tres") as StatusEffectData)
+		_spawn_aoe_impact_burst(_r2_aoe_pos, Color(0.75, 0.5, 0.18, 0.95), 1.0)
 	if _state_timer >= r2_duration:
 		_finish_r2_skill()
 
@@ -2341,6 +2559,8 @@ func _start_taunt() -> void:
 	_spawn_taunt_marker()
 	# Flash rojo de pantalla — el player no puede ignorarlo.
 	_spawn_taunt_screen_flash()
+	# Grito + onda expansiva: gesto visual del taunt (no solo alerta superior).
+	_spawn_taunt_shout()
 	# TAUNT MMO real: arrastrar al player hacia el tank. Override de input.
 	# Decisión Leo: feel "roto" pero necesario para que el taunt cumpla su rol.
 	var player_node: Node = get_tree().get_first_node_in_group("player")
@@ -2501,6 +2721,69 @@ func _spawn_taunt_screen_flash() -> void:
 	tween.tween_callback(func() -> void:
 		if is_instance_valid(canvas):
 			canvas.queue_free()
+	)
+
+
+## Grito visual del taunt: texto "¡EHH!" flota hacia arriba + onda expansiva
+## naranja desde el tank. Refuerza que el taunt es un "grito" activo del enemigo.
+func _spawn_taunt_shout() -> void:
+	# ── Texto "¡EHH!" ──
+	var shout: Label = Label.new()
+	shout.name = "TauntShout"
+	shout.text = "¡EHH!"
+	shout.add_theme_color_override("font_color", Color(1.0, 0.95, 0.15, 1.0))
+	shout.add_theme_color_override("font_outline_color", Color(0.7, 0.0, 0.0, 1.0))
+	shout.add_theme_constant_override("outline_size", 8)
+	shout.add_theme_font_size_override("font_size", 42)
+	shout.size = Vector2(120, 50)
+	shout.position = Vector2(-60, -140)
+	shout.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	shout.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	shout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shout.z_index = 6
+	shout.pivot_offset = Vector2(60, 25)
+	shout.scale = Vector2(0.4, 0.4)
+	add_child(shout)
+
+	var shout_tween: Tween = create_tween().set_parallel(true)
+	shout_tween.tween_property(shout, "scale", Vector2(1.3, 1.3), 0.18) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	shout_tween.tween_property(shout, "position:y", -190.0, 0.7) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	shout_tween.tween_property(shout, "modulate:a", 0.0, 0.25).set_delay(0.45)
+	shout_tween.chain().tween_callback(func() -> void:
+		if is_instance_valid(shout):
+			shout.queue_free()
+	)
+
+	# ── Onda expansiva (shockwave) ──
+	var ring_holder: Node2D = Node2D.new()
+	ring_holder.name = "TauntShockwave"
+	ring_holder.position = Vector2(0, -30)
+	ring_holder.z_index = 1
+	add_child(ring_holder)
+
+	var ring: Line2D = Line2D.new()
+	ring.width = 4.0
+	ring.default_color = Color(1.0, 0.55, 0.0, 0.95)
+	ring.closed = true
+	var pts: PackedVector2Array = PackedVector2Array()
+	var segments: int = 32
+	var base_radius: float = 25.0
+	for i in range(segments):
+		var ang: float = i * TAU / float(segments)
+		pts.append(Vector2(cos(ang), sin(ang)) * base_radius)
+	ring.points = pts
+	ring_holder.add_child(ring)
+
+	var ring_tween: Tween = create_tween().set_parallel(true)
+	ring_tween.tween_property(ring_holder, "scale", Vector2(4.5, 4.5), 0.5) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	ring_tween.tween_property(ring, "modulate:a", 0.0, 0.5) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	ring_tween.chain().tween_callback(func() -> void:
+		if is_instance_valid(ring_holder):
+			ring_holder.queue_free()
 	)
 
 

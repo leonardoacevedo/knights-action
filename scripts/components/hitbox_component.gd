@@ -59,6 +59,24 @@ var force_elem_advantage: bool = false
 ## Setear desde el enemy.gd al activar el buff Arma Imbuida + restaurar al expirar.
 var ignore_shield: bool = false
 
+## Defaults de hitbox por visual_type cuando ItemData no override-a.
+## Format: { visual_type: {reach, width, arc_deg, damage_zone} }.
+## visual_type 2 (Bow) y 3 (Staff) excluidos: son ranged, no usan hitbox melee.
+const WEAPON_HITBOX_DEFAULTS: Dictionary = {
+	0: {"reach": 24.0, "width": 14.0, "arc_deg": 100.0, "damage_zone": 1.0},  # NONE (puños)
+	1: {"reach": 50.0, "width": 12.0, "arc_deg": 130.0, "damage_zone": 1.0},  # SWORD
+	4: {"reach": 36.0, "width": 26.0, "arc_deg": 110.0, "damage_zone": 0.35}, # HAMMER (solo cabeza)
+}
+
+## ConvexPolygonShape2D usado para forma de swing. Lazy-inicializado.
+var _swing_shape: ConvexPolygonShape2D = null
+var _swing_collision: CollisionShape2D = null
+var _swing_reach: float = 0.0
+var _swing_width: float = 0.0
+var _swing_arc_rad: float = 0.0
+var _swing_damage_zone: float = 1.0
+
+
 func _ready() -> void:
 	# Layer 4 = Hitbox. Mask 5 = detecta Hurtbox.
 	collision_layer = 0b1000     # bit 4
@@ -69,12 +87,96 @@ func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 
 
+## Configura el hitbox para usar shape de swing (polígono que rota con el arc).
+## Llamar al iniciar attack. Devuelve true si visual_type soporta melee, false si ranged.
+## Si reach/width/arc/damage_zone vienen en 0 desde ItemData, usa defaults del visual_type.
+## `scale_mult` multiplica reach + width (no arc ni damage_zone). Coincide con sprite.scale
+## * weapon_scale para que el hitbox crezca igual que el render. Default 1.0 = sin cambio.
+func setup_weapon_swing(visual_type: int, reach: float, width: float,
+		arc_deg: float, damage_zone: float, scale_mult: float = 1.0) -> bool:
+	if not WEAPON_HITBOX_DEFAULTS.has(visual_type):
+		return false  # Bow/Staff/Shield → ranged o no-arma
+	var d: Dictionary = WEAPON_HITBOX_DEFAULTS[visual_type]
+	var base_reach: float = reach if reach > 0.0 else float(d["reach"])
+	var base_width: float = width if width > 0.0 else float(d["width"])
+	_swing_reach = base_reach * scale_mult
+	_swing_width = base_width * scale_mult
+	var arc: float = arc_deg if arc_deg > 0.0 else float(d["arc_deg"])
+	_swing_arc_rad = deg_to_rad(arc)
+	_swing_damage_zone = damage_zone if damage_zone > 0.0 else float(d["damage_zone"])
+	# Inicializar (lazy) el ConvexPolygonShape2D + CollisionShape2D dedicado.
+	if _swing_collision == null:
+		_swing_collision = CollisionShape2D.new()
+		_swing_collision.name = "SwingShape"
+		_swing_shape = ConvexPolygonShape2D.new()
+		_swing_collision.shape = _swing_shape
+		add_child(_swing_collision)
+	# Ocultar el shape rectangular original (HitboxShape) mientras swing está activo.
+	_set_legacy_shape_enabled(false)
+	_swing_collision.disabled = not monitoring
+	# Estado inicial: progress=0 → polígono al inicio del arco.
+	update_swing_arc(0.0, 1)
+	return true
+
+
+## Actualizar forma del swing en función del progreso (0..1) y facing (1 o -1).
+## Llamar cada frame durante la ventana ATTACK_ACTIVE.
+func update_swing_arc(progress: float, facing: int) -> void:
+	if _swing_shape == null or _swing_reach <= 0.0:
+		return
+	# Ángulo: -arc/2 al inicio, +arc/2 al final. Movimiento descendente del filo.
+	var angle: float = lerp(-_swing_arc_rad * 0.5, _swing_arc_rad * 0.5, clamp(progress, 0.0, 1.0))
+	# Construir polígono en frame "facing=+1" (extiende +X), luego espejar X por facing.
+	var start_x: float = _swing_reach * (1.0 - _swing_damage_zone)
+	var end_x: float = _swing_reach
+	var half_w: float = _swing_width * 0.5
+	var taper: float = 0.7  # punta levemente más fina que la base
+	var local_pts: PackedVector2Array = PackedVector2Array([
+		Vector2(start_x, -half_w),
+		Vector2(end_x, -half_w * taper),
+		Vector2(end_x, half_w * taper),
+		Vector2(start_x, half_w),
+	])
+	# Rotar por angle (en frame facing=+1) y luego espejar X si facing=-1.
+	var cos_a: float = cos(angle)
+	var sin_a: float = sin(angle)
+	var rotated: PackedVector2Array = PackedVector2Array()
+	rotated.resize(local_pts.size())
+	for i in range(local_pts.size()):
+		var p: Vector2 = local_pts[i]
+		var rx: float = p.x * cos_a - p.y * sin_a
+		var ry: float = p.x * sin_a + p.y * cos_a
+		rotated[i] = Vector2(rx * float(facing), ry)
+	_swing_shape.points = rotated
+
+
+## Vuelve al hitbox rectangular original (escenas con CollisionShape2D fijo).
+## Llamar al terminar attack (finalize) o si la entity no usa swing.
+func clear_swing_shape() -> void:
+	if _swing_collision != null:
+		_swing_collision.disabled = true
+	_set_legacy_shape_enabled(true)
+	_swing_reach = 0.0
+
+
+func _set_legacy_shape_enabled(enabled: bool) -> void:
+	for child in get_children():
+		if child == _swing_collision:
+			continue
+		if child is CollisionShape2D or child is CollisionPolygon2D:
+			child.set_deferred("disabled", not enabled)
+
+
 func set_active(value: bool) -> void:
 	# Toggle por monitoring evita procesar colisiones cuando no corresponde.
 	monitoring = value
 	# Disable shapes también, defensa en profundidad.
 	for child in get_children():
 		if child is CollisionShape2D or child is CollisionPolygon2D:
+			# Si el swing está activo, deshabilitar el legacy shape independiente del toggle.
+			if _swing_reach > 0.0 and child != _swing_collision:
+				child.set_deferred("disabled", true)
+				continue
 			child.set_deferred("disabled", not value)
 
 
