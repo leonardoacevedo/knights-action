@@ -135,6 +135,9 @@ func _enter_phase_2() -> void:
 		sprite.body_color = Color(0.35, 0.65, 1.10, 1.0)
 	if CameraShake != null:
 		CameraShake.shake(12.0, 0.30)
+	# VFX Fase 1: aura de Canto Helado (radio CANTO_RADIUS) — antes invisible.
+	# Anillo cyan tenue persistente que marca el rango de slow; pulsa en cada tick.
+	_spawn_canto_aura()
 
 
 # ─── State machine override ──────────────────────────────────────────────────
@@ -203,6 +206,7 @@ func _change_to_boss_state(new_state: int) -> void:
 	match new_state:
 		BOSS_STATE_LATIGO_WINDUP:
 			sprite.start_telegraph(LATIGO_WINDUP_SECONDS)
+			_spawn_latigo_telegraph()
 		BOSS_STATE_NOVA_WINDUP:
 			sprite.start_telegraph(NOVA_WINDUP_SECONDS)
 			_spawn_nova_telegraph()
@@ -264,10 +268,13 @@ func _tick_boss_state(delta: float) -> void:
 			if _state_timer >= VORTICE_WINDUP_SECONDS:
 				state = BOSS_STATE_VORTICE_ACTIVE
 				_state_timer = 0.0
+				# VFX Fase 1: vórtice de líneas convergiendo hacia Lyss + tinte (antes cero VFX).
+				_spawn_vortice_vfx()
 		BOSS_STATE_VORTICE_ACTIVE:
 			velocity.x = 0.0
 			_apply_vortice_pull(delta)
 			if _state_timer >= VORTICE_ACTIVE_SECONDS:
+				_despawn_vortice_vfx()
 				_vortice_cd = randf_range(VORTICE_COOLDOWN_MIN, VORTICE_COOLDOWN_MAX)
 				_change_state(State.RECOVERY)
 
@@ -398,6 +405,8 @@ func _apply_vortice_pull(delta: float) -> void:
 func _apply_canto_helado() -> void:
 	if _target == null:
 		return
+	# Pulso visual del aura en cada tick del canto (comunica el ritmo del slow).
+	_pulse_canto_aura()
 	var dist: float = global_position.distance_to(_target.global_position)
 	if dist > CANTO_RADIUS:
 		return
@@ -439,9 +448,15 @@ func _spawn_muralla_aura() -> void:
 	aura.process_material = mat
 	aura.emitting = true
 	add_child(aura)
+	# VFX Fase 1: domo/círculo tenue que marca el radio de reflejo (antes solo partículas sin zona).
+	_spawn_muralla_dome()
 
 
 func _despawn_muralla_aura() -> void:
+	# Quitar el domo de reflejo de inmediato (deja de marcar la zona).
+	var dome: Node = get_node_or_null("MurallaDomeLyss")
+	if dome != null:
+		dome.queue_free()
 	var aura: Node = get_node_or_null("MurallaAuraLyss")
 	if aura == null:
 		return
@@ -490,3 +505,159 @@ func _check_muralla_reflect() -> void:
 			_muralla_reflected_set.append(proj)
 			if CameraShake != null:
 				CameraShake.shake(4.0, 0.06)
+
+
+# ─── VFX Fase 1 (solo visual, no tocan daño/estados) ──────────────────────────
+
+## Telegraph LINE del Látigo Helado: franja cyan que marca la zona del hitbox lineal.
+## Mismo origen/orientación que _apply_latigo_damage para que coincida con el golpe real.
+func _spawn_latigo_telegraph() -> void:
+	var scene: PackedScene = load("res://scenes/effects/aoe_telegraph.tscn") as PackedScene
+	if scene == null:
+		return
+	var tele: AoeTelegraph = scene.instantiate() as AoeTelegraph
+	if tele == null:
+		return
+	# Origen del hitbox: medio del rectángulo, delante del boss.
+	tele.global_position = global_position + Vector2(current_facing * LATIGO_RANGE * 0.5, -50.0)
+	var facing_rad: float = 0.0 if current_facing >= 0 else PI
+	# LINE: length=alcance, radius=semi-ancho, facing en radianes.
+	tele.setup(LATIGO_WIDTH * 0.5, LATIGO_WINDUP_SECONDS + LATIGO_STRIKE_SECONDS, \
+		Color(0.45, 0.85, 1.0, 0.6), AoeTelegraph.TelegraphShape.LINE, \
+		90.0, LATIGO_RANGE, facing_rad)
+	get_tree().current_scene.add_child(tele)
+
+
+## Vórtice de Gravedad: líneas radiales que rotan/encogen hacia Lyss + tinte cyan.
+## Nodo persistente hijo del boss; se anima con tween en loop hasta _despawn_vortice_vfx.
+func _spawn_vortice_vfx() -> void:
+	var old: Node = get_node_or_null("VorticeVFXLyss")
+	if old != null:
+		old.queue_free()
+	var holder: Node2D = Node2D.new()
+	holder.name = "VorticeVFXLyss"
+	holder.position = Vector2(0, -45)
+	holder.z_index = 2
+	add_child(holder)
+	# 8 líneas radiales apuntando hacia afuera (convergen visualmente al encoger el holder).
+	var line_count: int = 8
+	var outer_r: float = 130.0
+	var inner_r: float = 24.0
+	for i in range(line_count):
+		var ang: float = float(i) * TAU / float(line_count)
+		var dir: Vector2 = Vector2(cos(ang), sin(ang) * 0.7)  # achatado vertical
+		var ln: Line2D = Line2D.new()
+		ln.width = 3.0
+		ln.default_color = Color(0.5, 0.85, 1.0, 0.7)
+		ln.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		ln.end_cap_mode = Line2D.LINE_CAP_ROUND
+		ln.points = PackedVector2Array([dir * outer_r, dir * inner_r])
+		holder.add_child(ln)
+	# Animación: rota continuamente + pulso de escala (succión). Loop hasta despawn.
+	var tw: Tween = create_tween().set_loops()
+	tw.tween_property(holder, "rotation", TAU, 0.8).from(0.0)
+	holder.set_meta("tween", tw)
+	var tw_scale: Tween = create_tween().set_loops()
+	tw_scale.tween_property(holder, "scale", Vector2(0.6, 0.6), 0.6) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw_scale.tween_property(holder, "scale", Vector2(1.0, 1.0), 0.0)
+	holder.set_meta("tween_scale", tw_scale)
+	# Tinte cyan sobre el sprite mientras dura el arrastre.
+	if sprite != null:
+		sprite.modulate = Color(0.7, 0.9, 1.2, 1.0)
+
+
+func _despawn_vortice_vfx() -> void:
+	var holder: Node = get_node_or_null("VorticeVFXLyss")
+	if holder != null:
+		if holder.has_meta("tween"):
+			var tw: Tween = holder.get_meta("tween")
+			if tw != null and tw.is_valid():
+				tw.kill()
+		if holder.has_meta("tween_scale"):
+			var tw2: Tween = holder.get_meta("tween_scale")
+			if tw2 != null and tw2.is_valid():
+				tw2.kill()
+		holder.queue_free()
+	if sprite != null:
+		sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
+
+
+## Aura del Canto Helado: anillo cyan tenue de radio CANTO_RADIUS que marca el rango de slow.
+## Persistente durante toda la F2. _pulse_canto_aura lo destella en cada tick.
+func _spawn_canto_aura() -> void:
+	var old: Node = get_node_or_null("CantoAuraLyss")
+	if old != null:
+		old.queue_free()
+	var ring: Line2D = Line2D.new()
+	ring.name = "CantoAuraLyss"
+	ring.position = Vector2(0, -20)
+	ring.z_index = -1
+	ring.width = 2.5
+	ring.default_color = Color(0.45, 0.85, 1.0, 0.18)
+	ring.closed = true
+	var pts: PackedVector2Array = PackedVector2Array()
+	var segs: int = 40
+	for i in range(segs):
+		var ang: float = float(i) * TAU / float(segs)
+		# Elipse achatada (look de anillo de suelo).
+		pts.append(Vector2(cos(ang) * CANTO_RADIUS, sin(ang) * CANTO_RADIUS * 0.45))
+	ring.points = pts
+	add_child(ring)
+
+
+## Destello del aura del Canto: sube width/alpha y vuelve. Marca el "tick" del slow.
+func _pulse_canto_aura() -> void:
+	var ring: Line2D = get_node_or_null("CantoAuraLyss") as Line2D
+	if ring == null:
+		return
+	var tw: Tween = create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ring, "width", 5.0, 0.12).from(2.5)
+	tw.tween_property(ring, "default_color", Color(0.6, 0.95, 1.0, 0.45), 0.12) \
+		.from(Color(0.45, 0.85, 1.0, 0.18))
+	tw.chain().set_parallel(true)
+	tw.tween_property(ring, "width", 2.5, 0.28)
+	tw.tween_property(ring, "default_color", Color(0.45, 0.85, 1.0, 0.18), 0.28)
+
+
+## Domo de la Muralla Estática: círculo tenue + borde de radio MURALLA_REFLECT_RADIUS.
+## Marca visualmente la zona donde se reflejan los proyectiles del player.
+func _spawn_muralla_dome() -> void:
+	var old: Node = get_node_or_null("MurallaDomeLyss")
+	if old != null:
+		old.queue_free()
+	var holder: Node2D = Node2D.new()
+	holder.name = "MurallaDomeLyss"
+	holder.position = Vector2(0, -45)
+	holder.z_index = -1
+	add_child(holder)
+	# Relleno tenue (círculo semitransparente).
+	var fill: Polygon2D = Polygon2D.new()
+	fill.color = Color(0.4, 0.7, 1.0, 0.10)
+	var fill_pts: PackedVector2Array = PackedVector2Array()
+	var segs: int = 32
+	for i in range(segs):
+		var ang: float = float(i) * TAU / float(segs)
+		fill_pts.append(Vector2(cos(ang), sin(ang)) * MURALLA_REFLECT_RADIUS)
+	fill.polygon = fill_pts
+	holder.add_child(fill)
+	# Borde saturado (domo de reflejo).
+	var border: Line2D = Line2D.new()
+	border.width = 2.5
+	border.default_color = Color(0.6, 0.85, 1.0, 0.55)
+	border.closed = true
+	border.points = fill_pts
+	holder.add_child(border)
+
+
+## Limpieza de VFX persistentes si Lyss muere a mitad de un cast.
+func _on_died() -> void:
+	_despawn_vortice_vfx()
+	var canto: Node = get_node_or_null("CantoAuraLyss")
+	if canto != null:
+		canto.queue_free()
+	var dome: Node = get_node_or_null("MurallaDomeLyss")
+	if dome != null:
+		dome.queue_free()
+	super._on_died()

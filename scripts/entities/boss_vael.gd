@@ -407,10 +407,29 @@ func _apply_salto_landing() -> void:
 func _spawn_lanza_line() -> void:
 	if _lanza_line != null and is_instance_valid(_lanza_line):
 		_lanza_line.queue_free()
+	# Haz de luz por capas: glow exterior ancho + núcleo brillante fino + destello de
+	# origen. Antes era un solo Line2D plano (se leía como un rectángulo amarillo, no
+	# como un rayo de luz). Las capas + caps redondeados le dan look de haz emitido.
 	_lanza_line = Line2D.new()
-	_lanza_line.width = LANZA_WIDTH
-	_lanza_line.default_color = Color(1.0, 0.95, 0.55, 0.8)
+	_lanza_line.width = LANZA_WIDTH * 2.0
+	_lanza_line.default_color = Color(1.0, 0.88, 0.40, 0.30)  # glow exterior cálido
+	_lanza_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	_lanza_line.end_cap_mode = Line2D.LINE_CAP_ROUND
 	_lanza_line.z_index = 5
+	var core: Line2D = Line2D.new()
+	core.name = "Core"
+	core.width = LANZA_WIDTH * 0.45
+	core.default_color = Color(1.0, 1.0, 0.92, 0.95)  # núcleo casi blanco
+	core.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	core.end_cap_mode = Line2D.LINE_CAP_ROUND
+	core.z_index = 1
+	_lanza_line.add_child(core)
+	var origin_glow: Polygon2D = Polygon2D.new()
+	origin_glow.name = "OriginGlow"
+	origin_glow.color = Color(1.0, 0.97, 0.70, 0.85)  # punto de emisión brillante
+	origin_glow.polygon = _make_circle_points(LANZA_WIDTH * 1.1, 14)
+	origin_glow.z_index = 2
+	_lanza_line.add_child(origin_glow)
 	get_tree().current_scene.add_child(_lanza_line)
 	_update_lanza_line()
 
@@ -420,7 +439,23 @@ func _update_lanza_line() -> void:
 		return
 	var origin: Vector2 = global_position + Vector2(0, -45)
 	var endp: Vector2 = origin + _lanza_aim_dir * LANZA_LENGTH
-	_lanza_line.points = PackedVector2Array([origin, endp])
+	var pts: PackedVector2Array = PackedVector2Array([origin, endp])
+	_lanza_line.points = pts
+	var core: Line2D = _lanza_line.get_node_or_null("Core") as Line2D
+	if core != null:
+		core.points = pts
+	var og: Polygon2D = _lanza_line.get_node_or_null("OriginGlow") as Polygon2D
+	if og != null:
+		og.position = origin
+
+
+## Puntos de un círculo para el destello de origen del haz.
+func _make_circle_points(r: float, sides: int) -> PackedVector2Array:
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i in range(sides):
+		var a: float = (float(i) / float(sides)) * TAU
+		pts.append(Vector2(cos(a) * r, sin(a) * r))
+	return pts
 
 
 func _despawn_lanza_line() -> void:

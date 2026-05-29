@@ -261,6 +261,15 @@ func _change_to_boss_state(new_state: int) -> void:
 		BOSS_STATE_LLUVIA_AOE_FALL:
 			_aoe_fired = false
 			_aoe_falling_timer = 0.0
+			# VFX: flechas visibles cayendo del cielo sobre cada zona marcada. Antes solo
+			# había círculo plano + daño. Reusa el helper del mob Archer R3: cargamos las
+			# posiciones de drop heredadas y disparamos visuales (is_meteor=false → flechas).
+			# El helper hace fade-in de la caída en R3_LLUVIA_DROP_TIME (~0.55s) y al aterrizar
+			# llama _spawn_aoe_impact_burst — sincroniza con el daño a LLUVIA_AOE_FALL_DELAY.
+			_r3_drop_positions.clear()
+			for aoe_pos: Vector2 in _aoe_target_positions:
+				_r3_drop_positions.append(aoe_pos)
+			_r3_spawn_lluvia_visuals(false)
 
 		BOSS_STATE_TELESHOT_WINDUP:
 			sprite.start_telegraph(TELESHOT_WINDUP)
@@ -514,6 +523,10 @@ func _on_mareo_hit_landed(target_hurtbox: HurtboxComponent) -> void:
 	var parent: Node = target_hurtbox.get_parent()
 	if parent != null and parent.has_method("apply_slow"):
 		parent.apply_slow(MAREO_SLOW_MULT, MAREO_SLOW_DURATION)
+		# VFX: burst de escarcha cyan al impactar — comunica el slow aplicado
+		# (antes el slow era invisible salvo por el cambio de velocidad del player).
+		self._spawn_aoe_impact_burst(target_hurtbox.global_position,
+			Color(0.4, 0.75, 1.0, 0.9), 0.9)
 
 
 func _start_teleport() -> void:

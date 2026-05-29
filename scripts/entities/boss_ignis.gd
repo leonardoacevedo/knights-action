@@ -74,6 +74,8 @@ const GIRATORIO_DAMAGE_TICK: float = 0.25
 const GIRATORIO_MOVE_SPEED: float = 80.0
 const GIRATORIO_COOLDOWN_MIN: float = 11.0
 const GIRATORIO_COOLDOWN_MAX: float = 14.0
+## Intervalo entre arcos de tajo VFX durante el giro (solo visual, no afecta daño).
+const GIRATORIO_SLASH_INTERVAL: float = 0.18
 
 const PHASE_2_COOLDOWN_FACTOR: float = 0.75
 
@@ -88,6 +90,8 @@ var _sed_active_timer: float = 0.0
 var _orig_speed: float = 0.0
 var _salto_landing_x: float = 0.0
 var _giratorio_damage_accum: float = 0.0
+## Contador de arcos de tajo emitidos en el giro actual — alterna facing para look de giro 360°.
+var _giratorio_slash_count: int = 0
 
 
 func _ready() -> void:
@@ -268,6 +272,10 @@ func _tick_boss_state(delta: float) -> void:
 			if _state_timer >= METEOROS_WINDUP_SECONDS:
 				state = BOSS_STATE_METEOROS_DROP
 				_state_timer = 0.0
+				# VFX Fase 1: meteoros visuales cayendo + burst al aterrizar. Se spawnean aquí
+				# (no en el telegraph) para que el aterrizaje sincronice con el daño:
+				# el helper cae en R3_LLUVIA_DROP_TIME(0.55) == METEOROS_DROP_TIME(0.55).
+				_r3_spawn_lluvia_visuals(true)
 		BOSS_STATE_METEOROS_DROP:
 			velocity.x = 0.0
 			if _state_timer >= METEOROS_DROP_TIME and not _r3_drop_damage_applied:
@@ -292,6 +300,7 @@ func _tick_boss_state(delta: float) -> void:
 				state = BOSS_STATE_GIRATORIO_ACTIVE
 				_state_timer = 0.0
 				_giratorio_damage_accum = 0.0
+				_giratorio_slash_count = 0
 				hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(
 					GameConfig.EnemyClass.MELEE, GameConfig.EnemyRarity.R3)) * GIRATORIO_DAMAGE_MULT))
 				hitbox.set_active(true)
@@ -300,6 +309,12 @@ func _tick_boss_state(delta: float) -> void:
 			if _target != null:
 				velocity.x = signf(_target.global_position.x - global_position.x) * GIRATORIO_MOVE_SPEED
 			# Tick damage manual via hitbox monitoring (ya activo).
+			# VFX Fase 1: arco de tajo naranja girando alrededor del cuerpo.
+			# Reusa _giratorio_damage_accum (antes sin uso) como timer de VFX — no afecta daño.
+			_giratorio_damage_accum += delta
+			if _giratorio_damage_accum >= GIRATORIO_SLASH_INTERVAL:
+				_giratorio_damage_accum -= GIRATORIO_SLASH_INTERVAL
+				_spawn_giratorio_slash()
 			if _state_timer >= GIRATORIO_ACTIVE_SECONDS:
 				hitbox.set_active(false)
 				hitbox.damage = GameConfig.enemy_damage_with_rarity(enemy_class, GameConfig.EnemyRarity.R3)
@@ -340,8 +355,11 @@ func _spawn_lava_at(pos: Vector2) -> void:
 	if hz == null:
 		return
 	hz.global_position = pos
+	# VFX Fase 1: tipo LAVA → borde rojo-naranja, brasas subiendo y glyph de fuego.
+	# El color naranja se mantiene como relleno; el tipo agrega la identidad de fuego.
 	hz.setup(SALTO_LAVA_RADIUS, SALTO_LAVA_DURATION, SALTO_LAVA_DAMAGE_PER_TICK, \
-		SALTO_LAVA_TICK_INTERVAL, team, Color(1.0, 0.35, 0.05, 0.65))
+		SALTO_LAVA_TICK_INTERVAL, team, Color(1.0, 0.35, 0.05, 0.65), \
+		PersistentHazard.HazardType.LAVA)
 	get_tree().current_scene.add_child(hz)
 
 
@@ -370,18 +388,69 @@ func _spawn_meteoros_telegraphs() -> void:
 		get_tree().current_scene.add_child(tele)
 
 
+# ─── Corte Giratorio: VFX slash ───────────────────────────────────────────────
+## Arco de tajo naranja fuego alrededor del cuerpo durante el giro.
+## Alterna facing (derecha/izquierda) según paridad del contador → sensación de giro 360°.
+func _spawn_giratorio_slash() -> void:
+	var facing: int = 1 if _giratorio_slash_count % 2 == 0 else -1
+	_giratorio_slash_count += 1
+	SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -45), \
+		facing, GIRATORIO_RADIUS, Color(1.0, 0.5, 0.12, 0.9), 150.0)
+
+
 # ─── Sed de Sangre (boss variant) ─────────────────────────────────────────────
 func _activate_sed_de_sangre_boss() -> void:
 	_sed_active_timer = SED_DURATION
 	speed = _orig_speed * SED_SPEED_MULT
 	if sprite != null:
 		sprite.modulate = Color(1.3, 0.6, 0.4, 1.0)
+	# VFX Fase 1: aura roja persistente durante el buff (antes solo modulate).
+	_spawn_sed_aura_ignis()
 
 
 func _end_sed_de_sangre_boss() -> void:
 	speed = _orig_speed
 	if sprite != null:
 		sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	# Apagar el aura de Sed al expirar el buff.
+	var aura: Node = get_node_or_null("SedDeSangreAuraIgnis")
+	if aura != null:
+		aura.queue_free()
+
+
+## Aura roja persistente mientras Sed de Sangre está activo.
+## Replica el patrón de _spawn_sed_de_sangre_buff_aura del mob Guerrero R3 (enemy.gd).
+func _spawn_sed_aura_ignis() -> void:
+	var old: Node = get_node_or_null("SedDeSangreAuraIgnis")
+	if old != null:
+		old.queue_free()
+	var aura: GPUParticles2D = GPUParticles2D.new()
+	aura.name = "SedDeSangreAuraIgnis"
+	aura.position = Vector2(0, -45)
+	aura.amount = 8
+	aura.lifetime = 0.8
+	aura.preprocess = 0.2
+	aura.explosiveness = 0.0
+	aura.z_index = 1
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 22.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 35.0
+	mat.gravity = Vector3(0, -20, 0)
+	mat.initial_velocity_min = 14.0
+	mat.initial_velocity_max = 32.0
+	mat.scale_min = 0.4
+	mat.scale_max = 1.0
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(1.0, 0.15, 0.15, 0.8))
+	grad.set_color(1, Color(0.9, 0.1, 0.0, 0.0))
+	var grad_tex: GradientTexture1D = GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+	aura.process_material = mat
+	aura.emitting = true
+	add_child(aura)
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────

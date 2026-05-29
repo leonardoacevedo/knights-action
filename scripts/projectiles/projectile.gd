@@ -76,6 +76,25 @@ func launch(direction: Vector2, damage_amount: int, team_id: int, attacker_eleme
 	team = team_id
 	element = attacker_element
 	rotation = _direction.angle()
+	# Tinte por elemento centralizado. Se aplica ACÁ (no diferido) para que cualquier
+	# caller que setee `modulate` DESPUÉS de launch() gane el override (ej. Cazadora Mareo).
+	_apply_element_tint()
+
+
+## Map elemento → color de proyectil. Unifica el look (antes cada boss parcheaba a mano).
+## NEUTRO blanco/gris · FUEGO naranja · AGUA cyan · TIERRA marrón · VIENTO verde-blanco
+## · LUZ dorado · SOMBRA violeta. Usa ItemData.Element (NEUTRO=0..SOMBRA=6).
+func _apply_element_tint() -> void:
+	var tint: Color
+	match element:
+		1: tint = Color(1.0, 0.5, 0.15, 1.0)   # FUEGO — naranja
+		2: tint = Color(0.35, 0.8, 1.0, 1.0)    # AGUA — cyan
+		3: tint = Color(0.65, 0.45, 0.25, 1.0)  # TIERRA — marrón
+		4: tint = Color(0.75, 1.0, 0.7, 1.0)    # VIENTO — verde-blanco
+		5: tint = Color(1.0, 0.9, 0.4, 1.0)     # LUZ — dorado
+		6: tint = Color(0.7, 0.4, 1.0, 1.0)     # SOMBRA — violeta
+		_: tint = Color(0.9, 0.9, 0.9, 1.0)     # NEUTRO — blanco/gris
+	modulate = tint
 
 
 ## API opcional para registrar la entidad que disparó. Habilita LUZ vampire heal.

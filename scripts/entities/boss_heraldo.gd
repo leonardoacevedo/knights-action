@@ -208,6 +208,8 @@ func _change_to_boss_state(new_state: int) -> void:
 
 		BOSS_STATE_ONDA_ACTIVE:
 			_apply_onda_damage()
+			# VFX Fase 1: burst de impacto violeta al detonar (antes el telegraph solo desaparecía).
+			_spawn_aoe_impact_burst(global_position, Color(0.85, 0.3, 1.0, 0.95), 1.4)
 			if CameraShake != null:
 				CameraShake.shake(12.0, 0.30)
 
@@ -219,6 +221,12 @@ func _change_to_boss_state(new_state: int) -> void:
 		BOSS_STATE_METEOROS_FALL:
 			_meteoros_falling_timer = 0.0
 			_meteoros_fired = false
+			# VFX Fase 1: meteoros visuales cayendo + burst de impacto al aterrizar.
+			# El helper heredado itera _r3_drop_positions → lo poblamos con los spots de Heraldo.
+			# El visual cae en R3_LLUVIA_DROP_TIME(0.55); el daño es a METEOROS_FALL_DELAY(0.4):
+			# el burst aterriza ~0.15s después del daño, dentro de la ventana visible del marker.
+			_r3_drop_positions = _meteoros_target_positions.duplicate()
+			_r3_spawn_lluvia_visuals(true)
 
 
 func _tick_boss_state(delta: float) -> void:
@@ -331,8 +339,10 @@ func _spawn_campo_hazard() -> void:
 		return
 	var hz: PersistentHazard = hz_scene.instantiate() as PersistentHazard
 	hz.global_position = _target.global_position
+	# VFX Fase 1: tipo ARCANE → borde violeta-cyan, motas orbitando y runa central.
 	hz.setup(CAMPO_HAZARD_RADIUS, CAMPO_HAZARD_DURATION, CAMPO_HAZARD_DAMAGE,
-		CAMPO_HAZARD_TICK, team, Color(0.65, 0.15, 0.85, 0.55))
+		CAMPO_HAZARD_TICK, team, Color(0.65, 0.15, 0.85, 0.55),
+		PersistentHazard.HazardType.ARCANE)
 	get_tree().current_scene.add_child(hz)
 
 
@@ -415,8 +425,11 @@ func _spawn_eco_eterno() -> void:
 	for offset: Vector2 in [ECO_ETERNO_OFFSET_LEFT, ECO_ETERNO_OFFSET_RIGHT]:
 		var hz: PersistentHazard = hz_scene.instantiate() as PersistentHazard
 		hz.global_position = global_position + offset
+		# VFX Fase 1: tipo ARCANE → identidad violeta coherente con Campo de Daño,
+		# ahora con borde/runa/aparición que avisan el charco permanente de F2.
 		hz.setup(ECO_ETERNO_RADIUS, ECO_ETERNO_DURATION, ECO_ETERNO_DAMAGE,
-			ECO_ETERNO_TICK, team, Color(0.45, 0.10, 0.85, 0.65))
+			ECO_ETERNO_TICK, team, Color(0.45, 0.10, 0.85, 0.65),
+			PersistentHazard.HazardType.ARCANE)
 		get_tree().current_scene.add_child(hz)
 
 

@@ -228,6 +228,10 @@ func _change_to_boss_state(new_state: int) -> void:
 			hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(
 				GameConfig.EnemyClass.MELEE, GameConfig.EnemyRarity.R3)) * 1.2 * TAJO_DAMAGE_MULT))
 			hitbox.set_active(true)
+			# VFX: arco de tajo de fuego por cada hit del doble — antes los 2 golpes no
+			# se distinguían visualmente. Cada hit muestra su barrido.
+			SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -40),
+				current_facing, 90.0, Color(1.0, 0.55, 0.15, 0.95), 120.0)
 
 		BOSS_STATE_TAJO_DOBLE_GAP:
 			hitbox.set_active(false)
@@ -279,6 +283,9 @@ func _change_to_boss_state(new_state: int) -> void:
 				GameConfig.EnemyClass.MELEE, GameConfig.EnemyRarity.R3)) * 1.2 * COMBO_SLASH_DAMAGE_MULT))
 			hitbox.set_active(true)
 			sprite.set_state(StickFigure.State.ATTACK)
+			# VFX: arco de tajo de fuego por cada corte del combo — distingue los 3 hits.
+			SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -40),
+				current_facing, 95.0, Color(1.0, 0.5, 0.12, 0.95), 120.0)
 
 		BOSS_STATE_COMBO_OVERHEAD:
 			_face_target()
@@ -286,6 +293,9 @@ func _change_to_boss_state(new_state: int) -> void:
 				GameConfig.EnemyClass.MELEE, GameConfig.EnemyRarity.R3)) * 1.2 * COMBO_OVERHEAD_DAMAGE_MULT))
 			hitbox.set_active(true)
 			sprite.set_state(StickFigure.State.ATTACK)
+			# VFX: arco overhead más amplio y saturado — remate pesado del combo.
+			SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -45),
+				current_facing, 110.0, Color(1.0, 0.35, 0.05, 1.0), 160.0)
 			if CameraShake != null:
 				CameraShake.shake(6.0, 0.18)
 
@@ -453,6 +463,9 @@ func _spawn_embestida_trail() -> void:
 
 
 ## Spawnea AoeTelegraph para la Llamarada en arco frontal.
+## VFX fix: el daño es un CONO frontal (mitad delantera dentro del radio), pero el
+## telegraph mostraba un círculo que mentía sobre la zona. Ahora usa shape=CONE con
+## el facing real (0 rad = derecha, PI = izquierda) y arc_deg que cubre el frente.
 func _spawn_llamarada_marker() -> void:
 	_cleanup_llamarada_marker()
 	var tele_scene: PackedScene = preload("res://scenes/effects/aoe_telegraph.tscn")
@@ -460,7 +473,10 @@ func _spawn_llamarada_marker() -> void:
 		return
 	var tele: AoeTelegraph = tele_scene.instantiate() as AoeTelegraph
 	tele.global_position = global_position + Vector2(current_facing * 50.0, 0)
-	tele.setup(LLAMARADA_RADIUS, LLAMARADA_WINDUP_SECONDS, Color(1.0, 0.45, 0.10, 0.55))
+	# facing en radianes según el sentido del boss: derecha=0, izquierda=PI.
+	var cone_facing: float = 0.0 if current_facing >= 0 else PI
+	tele.setup(LLAMARADA_RADIUS, LLAMARADA_WINDUP_SECONDS, Color(1.0, 0.45, 0.10, 0.55),
+		AoeTelegraph.TelegraphShape.CONE, 130.0, 200.0, cone_facing)
 	get_tree().current_scene.add_child(tele)
 	_llamarada_marker = tele
 
@@ -473,6 +489,10 @@ func _cleanup_llamarada_marker() -> void:
 
 ## Aplica daño AoE de la Llamarada: cono frontal radio LLAMARADA_RADIUS.
 func _apply_llamarada_damage() -> void:
+	# VFX: burst de fuego al detonar el cono (antes solo había telegraph + daño). Se
+	# spawnea en el centro del cono, siempre — independiente de si el player es alcanzado.
+	self._spawn_aoe_impact_burst(global_position + Vector2(current_facing * 50.0, 0),
+		Color(1.0, 0.5, 0.12, 0.95), 1.3)
 	if _target == null:
 		return
 	var target_hb: HurtboxComponent = _target.get_node_or_null("Hurtbox") as HurtboxComponent

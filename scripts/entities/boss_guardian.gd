@@ -113,6 +113,8 @@ var _charge_direction: int = 1
 var _gap_close_direction: int = 1
 ## Marcador visual del storm (instanciado en _spawn_storm_marker).
 var _storm_marker: Node2D = null
+## Telegraph AoE del slam (instanciado al saltar — marca la zona de aterrizaje).
+var _slam_telegraph: AoeTelegraph = null
 
 
 func _ready() -> void:
@@ -376,6 +378,10 @@ func _change_to_boss_state(new_state: int) -> void:
 				* CHARGE_DAMAGE_MULT
 			))
 			hitbox.set_active(true)
+			# VFX: arco de tajo al arrancar la embestida (consistencia con el trail del
+			# Duelista — comunica el barrido del dash pesado). Verde-tierra del Valle.
+			SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -45),
+				_charge_direction, 130.0, Color(0.7, 0.9, 0.4, 0.9), 140.0)
 
 		BOSS_STATE_GAP_CLOSE_WINDUP:
 			# Telegrafía corta (0.3s) — "voy a saltar hacia vos".
@@ -390,6 +396,10 @@ func _change_to_boss_state(new_state: int) -> void:
 				* GAP_CLOSE_DAMAGE_MULT
 			))
 			hitbox.set_active(true)
+			# VFX: arco de tajo al cerrar distancia (mismo gesto que la embestida pero
+			# más corto/rápido — el gap-close es un empujón ágil).
+			SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -45),
+				_gap_close_direction, 110.0, Color(0.75, 0.95, 0.5, 0.85), 110.0)
 			# Pequeño shake para sentir el "empujón".
 			if CameraShake != null:
 				CameraShake.shake(3.5, 0.08)
@@ -405,6 +415,10 @@ func _change_to_boss_state(new_state: int) -> void:
 		BOSS_STATE_SLAM_JUMP:
 			sprite.start_telegraph(SLAM_JUMP_DURATION)
 			velocity.y = SLAM_JUMP_HEIGHT_VELOCITY
+			# VFX: AoeTelegraph r=140 en la zona de aterrizaje (el slam cae sobre el
+			# propio boss — daño centrado en global_position). Antes solo había "!"
+			# sobre el boss en el aire; ahora el player ve dónde golpea el slam.
+			_spawn_slam_telegraph()
 			if CameraShake != null:
 				CameraShake.shake(4.0, 0.15)
 
@@ -556,9 +570,12 @@ func _activate_root_aoe() -> void:
 	for marker in _root_markers:
 		if not is_instance_valid(marker):
 			continue
-		var rect: ColorRect = marker.get_node_or_null("Ring") as ColorRect
+		var rect: Polygon2D = marker.get_node_or_null("Ring") as Polygon2D
 		if rect != null:
 			rect.color = Color(1.0, 0.5, 0.1, 0.95)
+		# VFX: burst expansivo al brotar cada raíz (el ColorRect plano no comunicaba
+		# el "golpe" de la raíz emergiendo). Verde-tierra para identidad del Valle.
+		self._spawn_aoe_impact_burst(marker.global_position, Color(0.6, 0.85, 0.3, 0.95), 0.9)
 	# Check overlap: si el target está dentro de alguna AoE, daño (un solo hit).
 	var dmg_total: int = int(round(
 		float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) * ROOTS_DAMAGE_MULT
@@ -578,8 +595,36 @@ func _cleanup_root_markers() -> void:
 	_root_markers.clear()
 
 
+## VFX del Slam Aplastante: AoeTelegraph circular r=SLAM_AOE_RADIUS en la zona de
+## aterrizaje. El slam es vertical (solo velocity.y) → cae sobre el propio boss, así
+## que el marker va en la X del boss a la altura de piso del target. Dura todo el salto.
+func _spawn_slam_telegraph() -> void:
+	_cleanup_slam_telegraph()
+	var tele_scene: PackedScene = load("res://scenes/effects/aoe_telegraph.tscn") as PackedScene
+	if tele_scene == null:
+		return
+	var tele: AoeTelegraph = tele_scene.instantiate() as AoeTelegraph
+	if tele == null:
+		return
+	var floor_y: float = _target.global_position.y if _target != null else global_position.y
+	tele.global_position = Vector2(global_position.x, floor_y)
+	tele.setup(SLAM_AOE_RADIUS, SLAM_JUMP_DURATION + 0.1, Color(0.9, 0.45, 0.2, 0.55))
+	get_tree().current_scene.add_child(tele)
+	_slam_telegraph = tele
+
+
+func _cleanup_slam_telegraph() -> void:
+	if is_instance_valid(_slam_telegraph):
+		_slam_telegraph.queue_free()
+	_slam_telegraph = null
+
+
 ## Daño AoE al aterrizar del slam. Si el player está dentro del radio, golpe pesado.
 func _apply_slam_damage() -> void:
+	# VFX: burst grande de impacto al aterrizar (antes del check de daño, para que el
+	# estallido se vea siempre). Limpia el telegraph de la zona ya consumida.
+	_cleanup_slam_telegraph()
+	self._spawn_aoe_impact_burst(global_position, Color(1.0, 0.55, 0.15, 0.95), 1.8)
 	if _target == null:
 		return
 	var target_hurtbox: HurtboxComponent = _target.get_node_or_null("Hurtbox") as HurtboxComponent
@@ -613,9 +658,12 @@ func _apply_storm_damage() -> void:
 	if target_hurtbox == null:
 		return
 	# Activar visual del storm: alpha alto, color pico.
-	var rect: ColorRect = _storm_marker.get_node_or_null("Ring") as ColorRect
+	var rect: Polygon2D = _storm_marker.get_node_or_null("Ring") as Polygon2D
 	if rect != null:
 		rect.color = Color(0.95, 0.4, 1.0, 0.9)
+	# VFX: burst grande violeta al detonar la tormenta (refuerza el "estallido"
+	# del AoE radio 200 que el ColorRect plano no transmitía).
+	self._spawn_aoe_impact_burst(_storm_marker.global_position, Color(0.85, 0.4, 1.0, 0.95), 1.6)
 	if _storm_marker.global_position.distance_to(_target.global_position) <= STORM_AOE_RADIUS:
 		var dmg: int = int(round(
 			float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) * STORM_DAMAGE_MULT
@@ -629,25 +677,56 @@ func _cleanup_storm_marker() -> void:
 	_storm_marker = null
 
 
-## Construye un Node2D con un ColorRect (placeholder visual). Marker de AoE.
+## Marker temático de zona de peligro en el suelo. Antes era un ColorRect plano
+## (se leía como un "rectángulo de color"). Ahora: relleno elíptico + borde definido
+## + picos radiales que comunican "algo emerge del suelo acá" (tierra/raíces del Valle).
+## El nodo "Ring" sigue siendo tintable por los callers vía .color (Polygon2D lo soporta).
 func _build_marker(pos: Vector2, color: Color, radius: float) -> Node2D:
 	var root: Node2D = Node2D.new()
 	root.global_position = pos
 	root.z_index = -5
 
-	var rect: ColorRect = ColorRect.new()
-	rect.name = "Ring"
-	rect.color = color
-	rect.offset_left = -radius
-	rect.offset_top = -radius * 0.4
-	rect.offset_right = radius
-	rect.offset_bottom = radius * 0.4
-	root.add_child(rect)
+	# Relleno elíptico (achatado, look de zona en el piso). "Ring" para los callers.
+	var fill: Polygon2D = Polygon2D.new()
+	fill.name = "Ring"
+	fill.color = color
+	fill.polygon = _ellipse_points(radius, radius * 0.4, 24)
+	root.add_child(fill)
+
+	# Borde más definido para que el límite del AoE se lea.
+	var border: Line2D = Line2D.new()
+	border.points = _ellipse_points(radius, radius * 0.4, 24)
+	border.closed = true
+	border.width = 2.5
+	border.default_color = Color(color.r, color.g, color.b, 0.9)
+	root.add_child(border)
+
+	# Picos radiales (tierra quebrando) — comunican que algo brota, no un cuadrado liso.
+	var spikes: int = 8
+	for i in range(spikes):
+		var a: float = (float(i) / float(spikes)) * TAU
+		var base: Vector2 = Vector2(cos(a) * radius * 0.7, sin(a) * radius * 0.4 * 0.7)
+		var tip: Vector2 = Vector2(cos(a) * radius * 1.05, sin(a) * radius * 0.4 * 1.05)
+		var perp: Vector2 = Vector2(-sin(a), cos(a)) * (radius * 0.08)
+		var spike: Polygon2D = Polygon2D.new()
+		spike.color = Color(color.r * 0.8, color.g * 0.8, color.b * 0.8, 0.85)
+		spike.polygon = PackedVector2Array([base - perp, tip, base + perp])
+		root.add_child(spike)
 	return root
+
+
+## Puntos de una elipse (rx horizontal, ry vertical). Para markers de suelo.
+func _ellipse_points(rx: float, ry: float, sides: int) -> PackedVector2Array:
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i in range(sides):
+		var a: float = (float(i) / float(sides)) * TAU
+		pts.append(Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
 
 
 ## Override de _on_died para limpiar markers activos.
 func _on_died() -> void:
 	_cleanup_root_markers()
 	_cleanup_storm_marker()
+	_cleanup_slam_telegraph()
 	super._on_died()

@@ -852,6 +852,8 @@ func _on_died() -> void:
 	# Limpiar Sed de Sangre si el guerrero R3 muere con buff activo.
 	if _r3_buff_timer > 0.0:
 		_end_sed_de_sangre()
+	# Limpiar aura de Arma Imbuida si muere con el buff activo.
+	_clear_arma_imbuida_aura()
 	# Si este enemy era soaker de otro tank, limpiar referencia.
 	if hurtbox.taunt_soaker != null:
 		hurtbox.taunt_soaker = null
@@ -2076,6 +2078,8 @@ func _finish_r2_skill() -> void:
 # ─── R2 Skill variants (pool §4 Set B/C) ────────────────────────────────────
 
 var _r2_giratorio_tick_accum: float = 0.0
+## Próximo instante (en _r2_giratorio_tick_accum) para spawnear un SlashArc del giro.
+var _r2_giratorio_next_slash: float = 0.0
 var _r2_tajo_hit_count: int = 0  # 0=pre-hit1, 1=post-hit1 gap, 2=post-hit2
 
 
@@ -2087,6 +2091,7 @@ func _enter_r2_giratorio() -> void:
 	hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy, sin swing residual
 	hitbox.set_active(true)
 	_r2_giratorio_tick_accum = 0.0
+	_r2_giratorio_next_slash = 0.0  # primer SlashArc en el primer tick
 
 
 func _tick_r2_giratorio(r2_duration: float) -> void:
@@ -2095,6 +2100,14 @@ func _tick_r2_giratorio(r2_duration: float) -> void:
 		velocity.x = signf(_target.global_position.x - global_position.x) * move_speed
 	# Tick accumulator — Godot Area2D detecta colisión continua. Hitbox queda activo todo el spin.
 	_r2_giratorio_tick_accum += get_physics_process_delta_time()
+	# VFX: arcos de tajo girando alrededor del cuerpo. SlashArc.facing es +1/-1, así que
+	# alternamos lado en cada spawn (~cada 0.12s) para leer como giro. Antes el spin no
+	# tenía slash visible (solo el sprite ATTACK).
+	if _r2_giratorio_tick_accum >= _r2_giratorio_next_slash:
+		_r2_giratorio_next_slash = _r2_giratorio_tick_accum + 0.12
+		var swing_facing: int = 1 if (int(_r2_giratorio_tick_accum / 0.12) % 2 == 0) else -1
+		SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -28),
+			swing_facing, 55.0, Color(0.95, 0.95, 1.0, 0.85), 150.0)
 	if _state_timer >= r2_duration:
 		_finish_r2_skill()
 
@@ -2106,6 +2119,9 @@ func _enter_r2_tajo_doble() -> void:
 	hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy, sin swing residual
 	hitbox.set_active(true)  # hit 1 inmediato
 	_r2_tajo_hit_count = 1
+	# VFX: arco de tajo del hit 1 (los 2 golpes del combo no se distinguían antes).
+	SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -28),
+		current_facing, 58.0, Color(0.95, 0.95, 1.0, 0.9), 120.0)
 
 
 func _tick_r2_tajo_doble(r2_duration: float) -> void:
@@ -2121,6 +2137,9 @@ func _tick_r2_tajo_doble(r2_duration: float) -> void:
 		hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy en hit 2
 		hitbox.set_active(true)  # hit 2
 		_r2_tajo_hit_count = 3
+		# VFX: arco de tajo del hit 2 — barrido inverso para diferenciarlo del hit 1.
+		SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -28),
+			-current_facing, 58.0, Color(0.95, 0.95, 1.0, 0.9), 120.0)
 	if _r2_tajo_hit_count == 3 and _state_timer >= hit2_end:
 		hitbox.set_active(false)
 		_r2_tajo_hit_count = 4
@@ -2134,6 +2153,10 @@ func _enter_r2_patada() -> void:
 		* _r2_skill_data.damage_mult))
 	hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy, sin swing residual
 	hitbox.set_active(true)
+	# VFX: arco corto frontal de impacto/empuje (antes la patada no tenía VFX, solo el
+	# sprite ATTACK + knockback). Arco angosto = golpe seco frontal, no swing amplio.
+	SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -24),
+		current_facing, 50.0, Color(1.0, 0.9, 0.7, 0.85), 70.0)
 
 
 func _tick_r2_patada(r2_duration: float) -> void:
@@ -2401,6 +2424,10 @@ func _enter_r2_gancho_ascendente() -> void:
 		* _r2_skill_data.damage_mult))
 	hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy, sin swing residual
 	hitbox.set_active(true)
+	# VFX: arco de impacto del gancho ascendente (antes sin VFX). Arco frontal angosto +
+	# centro algo más alto para sugerir el golpe que sube. Tono naranja del tank.
+	SlashArc.spawn(get_tree().current_scene, global_position + Vector2(0, -34),
+		current_facing, 56.0, Color(1.0, 0.7, 0.35, 0.9), 90.0)
 
 
 func _tick_r2_gancho_ascendente(r2_duration: float) -> void:
@@ -2434,6 +2461,53 @@ func _enter_r2_arma_imbuida() -> void:
 	hitbox.ignore_shield = true
 	if sprite != null:
 		sprite.modulate = Color(1.3, 0.85, 0.4, 1.0)
+	# VFX: aura dorada localizada en el lado del arma — comunica "ignora guardia" más
+	# claro que el tinte global del cuerpo (que es ambiguo). Persiste mientras dura el buff.
+	_spawn_arma_imbuida_aura()
+
+
+## Aura dorada en el arma para Arma Imbuida. Hijo del enemy (acompaña el movimiento),
+## nombre fijo para poder liberarla al expirar el buff. GPUParticles simple, mobile-cheap.
+func _spawn_arma_imbuida_aura() -> void:
+	var old: Node = get_node_or_null("ArmaImbuidaAura")
+	if old != null:
+		old.queue_free()
+	var aura: GPUParticles2D = GPUParticles2D.new()
+	aura.name = "ArmaImbuidaAura"
+	# Lado del arma del melee (mismo offset que el VFX de telegrafía melee).
+	aura.position = Vector2(current_facing * 20.0, -30)
+	aura.amount = 6   # mobile: máximo 6 partículas
+	aura.lifetime = 0.5
+	aura.preprocess = 0.2
+	aura.explosiveness = 0.0
+	aura.z_index = 1  # delante del cuerpo para que se lea el arma encendida
+	var mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 10.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 40.0
+	mat.gravity = Vector3(0, -30, 0)  # chispas que suben (arma "encendida")
+	mat.initial_velocity_min = 15.0
+	mat.initial_velocity_max = 40.0
+	mat.scale_min = 0.5
+	mat.scale_max = 1.1
+	# Dorado intenso → fade. Identidad de "filo que atraviesa guardia".
+	var grad: Gradient = Gradient.new()
+	grad.set_color(0, Color(1.0, 0.85, 0.35, 0.95))
+	grad.set_color(1, Color(1.0, 0.6, 0.1, 0.0))
+	var grad_tex: GradientTexture1D = GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+	aura.process_material = mat
+	aura.emitting = true
+	add_child(aura)
+
+
+## Libera el aura de Arma Imbuida si existe. Llamado al expirar el buff y al morir.
+func _clear_arma_imbuida_aura() -> void:
+	var aura: Node = get_node_or_null("ArmaImbuidaAura")
+	if aura != null:
+		aura.queue_free()
 
 
 func _tick_r2_arma_imbuida(r2_duration: float) -> void:
@@ -2453,6 +2527,8 @@ func _tick_arma_imbuida_buff(delta: float) -> void:
 		hitbox.ignore_shield = false
 		if sprite != null:
 			sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		# Apagar el aura del arma al expirar el buff.
+		_clear_arma_imbuida_aura()
 
 
 ## ── R2 Skill ARCHER: 3 flechas en spread vertical ±15° ──────────────────────
