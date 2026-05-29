@@ -211,7 +211,7 @@ func _on_block_absorbed(_amount: int, _source: HitboxComponent) -> void:
 		sprite.play_block_burst()
 	# Pequeño shake al absorber.
 	if CameraShake != null:
-		CameraShake.shake(0.10, 3.0)
+		CameraShake.shake(3.0, 0.10)
 
 
 ## Disparado por EnemyBlockHandler cuando una carga fue consumida.
@@ -241,7 +241,7 @@ func _on_shield_broken() -> void:
 	if sprite != null:
 		sprite.play_block_burst()
 	if CameraShake != null:
-		CameraShake.shake(0.25, 8.0)
+		CameraShake.shake(8.0, 0.25)
 	# Arrancar el timer de regen (se completa en SHIELD_AUTOREGEN_SECONDS).
 	_shield_regen_timer = 0.0
 
@@ -392,7 +392,7 @@ func _change_to_boss_state(new_state: int) -> void:
 			hitbox.set_active(true)
 			# Pequeño shake para sentir el "empujón".
 			if CameraShake != null:
-				CameraShake.shake(0.08, 3.5)
+				CameraShake.shake(3.5, 0.08)
 
 		BOSS_STATE_ROOTS_WINDUP:
 			sprite.start_telegraph(ROOTS_WINDUP_SECONDS)
@@ -406,12 +406,12 @@ func _change_to_boss_state(new_state: int) -> void:
 			sprite.start_telegraph(SLAM_JUMP_DURATION)
 			velocity.y = SLAM_JUMP_HEIGHT_VELOCITY
 			if CameraShake != null:
-				CameraShake.shake(0.15, 4.0)
+				CameraShake.shake(4.0, 0.15)
 
 		BOSS_STATE_SLAM_LAND:
 			_apply_slam_damage()
 			if CameraShake != null:
-				CameraShake.shake(0.35, 14.0)
+				CameraShake.shake(14.0, 0.35)
 
 		BOSS_STATE_STORM_WINDUP:
 			sprite.start_telegraph(STORM_WINDUP_SECONDS)
@@ -421,7 +421,7 @@ func _change_to_boss_state(new_state: int) -> void:
 		BOSS_STATE_STORM_ACTIVE:
 			_apply_storm_damage()
 			if CameraShake != null:
-				CameraShake.shake(0.45, 18.0)
+				CameraShake.shake(18.0, 0.45)
 
 
 ## Tick de estados boss-específicos. Maneja transiciones y physics.

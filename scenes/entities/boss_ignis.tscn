@@ -10,7 +10,7 @@
 size = Vector2(34, 108)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ignis_hit"]
-size = Vector2(78, 56)
+size = Vector2(110, 64)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ignis_hurt"]
 size = Vector2(46, 116)
@@ -38,7 +38,7 @@ body_scale_mult = 1.1
 signature_weapon = 2
 
 [node name="Hitbox" parent="." index="3"]
-position = Vector2(52, -52)
+position = Vector2(62, -52)
 
 [node name="HitboxShape" parent="Hitbox" index="0"]
 shape = SubResource("RectangleShape2D_ignis_hit")

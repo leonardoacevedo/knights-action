@@ -535,7 +535,7 @@ func _build_gold_row(parent: Control) -> void:
 	gold_hbox.add_child(gold_icon)
 	# TODO: reemplazar por icono real de oro cuando haya sprites.
 
-	_detail_gold_label = _make_label("Oro: 0  (no implementado en Fase 2)", FONT_SMALL, Color(0.55, 0.55, 0.5, 0.6))
+	_detail_gold_label = _make_label("Oro: —", FONT_SMALL, Color(0.55, 0.55, 0.5, 0.6))
 	_detail_gold_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_gold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_detail_gold_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -881,6 +881,7 @@ func _refresh_detail_panel() -> void:
 		_detail_output_rarity.text      = ""
 		_detail_output_stat.text        = ""
 		_detail_description.text        = ""
+		_refresh_gold_label(0)
 		for child in _detail_inputs_vbox.get_children():
 			child.queue_free()
 		return
@@ -908,6 +909,9 @@ func _refresh_detail_panel() -> void:
 	# Descripción.
 	_detail_description.text = recipe.description if recipe.description != "" else "(sin descripción)"
 
+	# Costo de oro real de la receta + saldo actual.
+	_refresh_gold_label(recipe.gold_cost)
+
 	# Materiales — reconstruir lista.
 	for child in _detail_inputs_vbox.get_children():
 		child.queue_free()
@@ -928,6 +932,18 @@ func _refresh_detail_panel() -> void:
 	if recipe.inputs.is_empty():
 		var warn := _make_label("(receta sin materiales definidos)", FONT_SMALL, Color(0.7, 0.5, 0.5, 0.8))
 		_detail_inputs_vbox.add_child(warn)
+
+
+func _refresh_gold_label(gold_cost: int) -> void:
+	# Muestra el costo de oro real de la receta y el saldo actual.
+	var balance: int = GoldSystem.get_gold()
+	if gold_cost <= 0:
+		_detail_gold_label.text = "Oro: sin costo  (tenés %d)" % balance
+		_detail_gold_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.5, 0.6))
+		return
+	_detail_gold_label.text = "Oro: %d  (tenés %d)" % [gold_cost, balance]
+	var col := COLOR_MAT_OK if balance >= gold_cost else COLOR_MAT_MISS
+	_detail_gold_label.add_theme_color_override("font_color", col)
 
 
 func _make_material_row(
@@ -990,12 +1006,14 @@ func _refresh_craft_button() -> void:
 	if not CraftingSystem.can_craft(_selected_recipe):
 		_craft_btn.disabled = true
 		var missing := CraftingSystem.get_missing_materials(_selected_recipe)
-		# Armar texto descriptivo del faltante más relevante.
-		var first_missing_key: StringName = missing.keys()[0] if not missing.is_empty() else &""
-		if first_missing_key != &"":
-			_craft_blocked_label.text = "Faltan materiales."
+		var lacks_gold: bool = _selected_recipe.gold_cost > 0 and not GoldSystem.can_afford(_selected_recipe.gold_cost)
+		# Distinguir falta de oro de falta de materiales.
+		if not missing.is_empty() and lacks_gold:
+			_craft_blocked_label.text = "Faltan materiales y oro."
+		elif lacks_gold:
+			_craft_blocked_label.text = "Falta oro."
 		else:
-			_craft_blocked_label.text = "Materiales insuficientes."
+			_craft_blocked_label.text = "Faltan materiales."
 		_craft_blocked_label.visible = true
 		return
 

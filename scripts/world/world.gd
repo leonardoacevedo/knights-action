@@ -254,6 +254,10 @@ func _on_run_completed() -> void:
 	# Zone chaining: zona 1 → 2 → 3 → 4. Cuando el último stage de la zona muere,
 	# si hay zona siguiente disponible, avanzamos. Si era la zona 4 (final), volvemos al menú.
 	# Modo prueba (TestArenaConfig) no avanza zona — termina en pantalla de menú.
+	# A13: MomentumSystem es autoload → conserva current_level entre zonas. Reset acá
+	# para que el HUD de la zona siguiente no arranque con el momentum del último golpe.
+	if MomentumSystem != null:
+		MomentumSystem.reset()
 	if TestArenaConfig.is_test_mode:
 		await get_tree().create_timer(2.5).timeout
 		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
@@ -303,7 +307,13 @@ func _spawn_stage(data: StageData) -> void:
 		if scene == null:
 			push_warning("World: scene null para clase %d." % entry.enemy_class)
 			continue
-		for i in entry.count:
+		# M8: clamp count a >=1. El @export_range es solo del editor; un .tres editado
+		# a mano podría tener 0 → no spawnea → _alive_count=0 desde el inicio → stage
+		# se marca cleared al instante. Garantizamos al menos 1 enemy por entry.
+		var spawn_count: int = maxi(entry.count, 1)
+		if entry.count < 1:
+			push_warning("World: entry con count=%d (clase %d) — clampeado a 1." % [entry.count, entry.enemy_class])
+		for i in spawn_count:
 			var enemy_elem: int = entry.element if "element" in entry else 0
 			var enemy: Node = _instantiate_enemy(scene, entry.enemy_class, entry.rarity, enemy_elem, spawn_index, player)
 			if enemy == null:

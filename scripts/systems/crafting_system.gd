@@ -161,9 +161,15 @@ func try_craft(recipe: CraftRecipe) -> CraftResult:
 	# Validación: materiales suficientes.
 	# Chequeamos todo ANTES de consumir — transacción atómica.
 	# can_craft() también valida oro, pero el check explícito arriba ya lo cubrió.
+	# A6: agregamos cantidades por material para detectar inputs duplicados
+	# (ej. [mat x2, mat x3] requiere 5 en total del mismo material, no 3 por input).
+	var needed_by_material: Dictionary = {}
 	for input: CraftRecipeInput in recipe.inputs:
-		var available: int = _inv().get_material_count(input.material.id)
-		if available < input.count:
+		var prev: int = needed_by_material.get(input.material.id, 0)
+		needed_by_material[input.material.id] = prev + input.count
+	for material_id: StringName in needed_by_material:
+		var available: int = _inv().get_material_count(material_id)
+		if available < needed_by_material[material_id]:
 			var aborted := CraftResult.new()
 			aborted.success = false
 			aborted.reason = "insufficient_materials"
@@ -184,11 +190,27 @@ func try_craft(recipe: CraftRecipe) -> CraftResult:
 		GoldSystem.consume(recipe.gold_cost)
 		result.gold_consumed = recipe.gold_cost
 
-	# Consumir materiales. remove_material es atómico — no puede fallar a medias
-	# porque ya validamos disponibilidad arriba y el inventario MVP es ilimitado.
+	# Consumir materiales. La validación agregada de arriba ya garantiza stock total,
+	# pero chequeamos el retorno de cada remove_material por seguridad (A6): si alguno
+	# falla, hacemos rollback (re-agregar lo removido + reembolsar oro) y abortamos
+	# SIN agregar el item. Acumulamos en materials_consumed para soportar inputs duplicados.
+	var removed_so_far: Array[Dictionary] = []
 	for input: CraftRecipeInput in recipe.inputs:
-		_inv().remove_material(input.material.id, input.count)
-		result.materials_consumed[input.material.id] = input.count
+		if not _inv().remove_material(input.material.id, input.count):
+			# Rollback: devolver materiales ya removidos.
+			for r: Dictionary in removed_so_far:
+				_inv().add_material(r["material"], r["count"])
+			# Reembolsar oro consumido.
+			if result.gold_consumed > 0:
+				GoldSystem.add(result.gold_consumed)
+			var aborted := CraftResult.new()
+			aborted.success = false
+			aborted.reason = "insufficient_materials"
+			craft_aborted.emit(aborted)
+			return aborted
+		removed_so_far.append({ "material": input.material, "count": input.count })
+		var prev_consumed: int = result.materials_consumed.get(input.material.id, 0)
+		result.materials_consumed[input.material.id] = prev_consumed + input.count
 
 	# Agregar item al inventario. add_item devuelve la instancia duplicada —
 	# actualizar result para que output_item apunte a la copia en el inventario,

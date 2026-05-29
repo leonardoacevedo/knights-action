@@ -82,6 +82,7 @@ var _penalty_label: Label
 # Display de coste
 var _stones_label: Label
 var _stones_status: Label             # verde ok / rojo falta
+var _gold_label: Label                # costo de oro del intento + saldo
 
 # Toggle pergamino
 var _scroll_toggle_root: Control
@@ -107,6 +108,7 @@ var _selected_item: ItemData = null
 var _is_open: bool = false
 var _is_animating: bool = false
 var _use_scroll: bool = false
+var _last_abort_reason: String = ""  # razón del último refine_aborted (A8)
 
 
 # ─── Ciclo de vida ───────────────────────────────────────────────────────────
@@ -628,9 +630,9 @@ func _build_cost_display(parent: Control) -> void:
 	gold_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	gold_hbox.add_child(gold_icon)
 
-	var gold_label := _make_label("Oro: 0  (no implementado en Fase 2)", FONT_SMALL, Color(0.6, 0.6, 0.5, 0.6))
-	gold_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gold_hbox.add_child(gold_label)
+	_gold_label = _make_label("Oro: —", FONT_SMALL, Color(0.6, 0.6, 0.5, 0.6))
+	_gold_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gold_hbox.add_child(_gold_label)
 
 	var sep := ColorRect.new()
 	sep.color = Color(0.3, 0.3, 0.5, 0.25)
@@ -1087,6 +1089,8 @@ func _refresh_cost() -> void:
 	if _selected_item == null:
 		_stones_label.text = "Piedras de Resonancia: —"
 		_stones_status.text = ""
+		_gold_label.text = "Oro: —"
+		_gold_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.5, 0.6))
 		return
 
 	var target := UpgradeManager.get_target_level(_selected_item)
@@ -1095,6 +1099,13 @@ func _refresh_cost() -> void:
 	var stones_have: int = InventorySystem.get_material_count(UpgradeManager.ID_PIEDRA)
 
 	_stones_label.text = "Piedras: %d  /  %d necesaria(s)" % [stones_have, stones_needed]
+
+	# Costo de oro real del intento + saldo actual.
+	var gold_needed: int = cost.get("gold", 0)
+	var gold_have: int = GoldSystem.get_gold()
+	_gold_label.text = "Oro: %d  /  %d necesario" % [gold_have, gold_needed]
+	var gold_col := Color(0.4, 0.92, 0.4, 1.0) if gold_have >= gold_needed else Color(0.95, 0.3, 0.3, 1.0)
+	_gold_label.add_theme_color_override("font_color", gold_col)
 
 	if stones_have >= stones_needed:
 		_stones_status.text = "OK"
@@ -1145,6 +1156,13 @@ func _refresh_attempt_button() -> void:
 	var cost := UpgradeManager.get_cost(target)
 	var stones_needed: int = cost.get("stones", 1)
 	var stones_have: int = InventorySystem.get_material_count(UpgradeManager.ID_PIEDRA)
+
+	var gold_needed: int = cost.get("gold", 0)
+	if gold_needed > 0 and not GoldSystem.can_afford(gold_needed):
+		_attempt_btn.disabled = true
+		_attempt_blocked_label.text = "Falta oro."
+		_attempt_blocked_label.visible = true
+		return
 
 	if stones_have < stones_needed:
 		_attempt_btn.disabled = true
@@ -1226,12 +1244,12 @@ func _execute_refine() -> void:
 	_refresh_session_label()
 
 	# attempt_refine muta el item y emite signals (connected en _connect_signals).
+	_last_abort_reason = ""
 	var result: RefineResult = UpgradeManager.attempt_refine(_selected_item, _use_scroll)
 
 	if result == null:
-		# attempt_refine emitió refine_aborted (condición de carrera rara — materiales
-		# cambiaron entre el chequeo del botón y la ejecución).
-		_show_result_aborted()
+		# attempt_refine emitió refine_aborted con el motivo (capturado en _on_refine_aborted).
+		_show_result_aborted(_last_abort_reason)
 		return
 
 	if result.success:
@@ -1285,10 +1303,25 @@ func _show_result_fail(result: RefineResult) -> void:
 	tween.tween_callback(_finish_animation)
 
 
-func _show_result_aborted() -> void:
+func _show_result_aborted(reason: String = "") -> void:
 	_anim_label.text = "Intento cancelado"
 	_anim_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75, 0.9))
-	_anim_sub_label.text = "Materiales insuficientes al momento del intento."
+	# Mensaje específico según el motivo del aborto (A8).
+	var msg: String
+	match reason:
+		"insufficient_gold":
+			msg = "Falta oro al momento del intento."
+		"scroll_not_applicable":
+			msg = "El Pergamino no aplica en este nivel."
+		"max_level":
+			msg = "El item ya está en el nivel máximo."
+		"invalid_item":
+			msg = "Item inválido."
+		"insufficient_materials":
+			msg = "Materiales insuficientes al momento del intento."
+		_:
+			msg = "Materiales insuficientes al momento del intento."
+	_anim_sub_label.text = msg
 	var tween := create_tween()
 	tween.tween_interval(1.2)
 	tween.tween_callback(_finish_animation)
@@ -1328,6 +1361,12 @@ func _connect_signals() -> void:
 	# Refrescar lista si el inventario de items cambia.
 	InventorySystem.item_added.connect(_on_items_changed)
 	InventorySystem.item_removed.connect(_on_items_changed)
+	# Capturar el motivo del aborto para mostrar un mensaje específico (A8).
+	UpgradeManager.refine_aborted.connect(_on_refine_aborted)
+
+
+func _on_refine_aborted(reason: String) -> void:
+	_last_abort_reason = reason
 
 
 func _on_materials_changed() -> void:

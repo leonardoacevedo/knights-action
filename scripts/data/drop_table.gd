@@ -47,6 +47,13 @@ func roll(momentum_level: int) -> Array:
 	return results
 
 
+## ADVERTENCIA (A5): roll_materials_only() y roll_items_only() ejecutan roll() de cero
+## cada uno. NO llamar AMBOS para el mismo evento de drop: serían dos tiradas RNG
+## independientes (doble-roll). Hoy es latente — materiales se tiran al matar enemy y
+## items al limpiar stage, eventos distintos. Si en el futuro un mismo evento necesita
+## materiales E items, usar un único roll() y filtrar su resultado por "type".
+
+
 ## Versión filtrada de roll() que retorna solo materiales.
 ## Lo usa DropSystem en Milestone A (los items vienen en Milestone B).
 func roll_materials_only(momentum_level: int) -> Array:

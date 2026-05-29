@@ -144,7 +144,7 @@ func _enter_phase_2() -> void:
 	if sprite != null:
 		sprite.body_color = Color(1.15, 0.35, 0.10, 1.0)
 	if CameraShake != null:
-		CameraShake.shake(0.30, 12.0)
+		CameraShake.shake(12.0, 0.30)
 
 
 # ─── Detección de parry: si lo golpean durante PARRY_ACTIVE → trigger ────────
@@ -243,7 +243,7 @@ func _change_to_boss_state(new_state: int) -> void:
 			hitbox.set_active(true)
 			_spawn_embestida_trail()
 			if CameraShake != null:
-				CameraShake.shake(0.10, 4.0)
+				CameraShake.shake(4.0, 0.10)
 
 		BOSS_STATE_PARRY_WINDUP:
 			sprite.start_telegraph(PARRY_WINDUP_SECONDS)
@@ -267,7 +267,7 @@ func _change_to_boss_state(new_state: int) -> void:
 				GameConfig.EnemyClass.MELEE, GameConfig.EnemyRarity.R3)) * 1.2 * PARRY_COUNTER_DAMAGE_MULT))
 			hitbox.set_active(true)
 			if CameraShake != null:
-				CameraShake.shake(0.20, 8.0)
+				CameraShake.shake(8.0, 0.20)
 
 		BOSS_STATE_COMBO_WINDUP:
 			sprite.start_telegraph(COMBO_WINDUP_SECONDS)
@@ -287,7 +287,7 @@ func _change_to_boss_state(new_state: int) -> void:
 			hitbox.set_active(true)
 			sprite.set_state(StickFigure.State.ATTACK)
 			if CameraShake != null:
-				CameraShake.shake(0.18, 6.0)
+				CameraShake.shake(6.0, 0.18)
 
 		BOSS_STATE_LLAMARADA_WINDUP:
 			sprite.start_telegraph(LLAMARADA_WINDUP_SECONDS)
@@ -297,7 +297,7 @@ func _change_to_boss_state(new_state: int) -> void:
 		BOSS_STATE_LLAMARADA_ACTIVE:
 			_apply_llamarada_damage()
 			if CameraShake != null:
-				CameraShake.shake(0.30, 12.0)
+				CameraShake.shake(12.0, 0.30)
 
 
 func _tick_boss_state(delta: float) -> void:

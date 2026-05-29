@@ -134,7 +134,7 @@ func _enter_phase_2() -> void:
 	if sprite != null:
 		sprite.body_color = Color(0.35, 0.65, 1.10, 1.0)
 	if CameraShake != null:
-		CameraShake.shake(0.30, 12.0)
+		CameraShake.shake(12.0, 0.30)
 
 
 # ─── State machine override ──────────────────────────────────────────────────
@@ -216,6 +216,7 @@ func _change_to_boss_state(new_state: int) -> void:
 
 
 func _tick_boss_state(delta: float) -> void:
+	_state_timer += delta  # fix C2: el timer no avanzaba en estados boss (early-return evita super)
 	match state:
 		BOSS_STATE_LATIGO_WINDUP:
 			velocity.x = 0.0
@@ -488,4 +489,4 @@ func _check_muralla_reflect() -> void:
 			proj.reflect(2, self, new_dir)
 			_muralla_reflected_set.append(proj)
 			if CameraShake != null:
-				CameraShake.shake(0.06, 4.0)
+				CameraShake.shake(4.0, 0.06)

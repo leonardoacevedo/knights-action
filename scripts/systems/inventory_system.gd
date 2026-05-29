@@ -10,6 +10,9 @@ extends Node
 signal item_added(item: ItemData)
 signal item_removed(item: ItemData)
 signal equipped_changed(slot: ItemData.Slot, item: ItemData)
+## A4: emitido cuando un item sale de un slot por reemplazo en equip().
+## Permite a los listeners saber qué pieza quedó desequipada (la nueva llega por equipped_changed).
+signal unequipped(slot: ItemData.Slot, prev_item: ItemData)
 
 ## Emitido cuando se agrega un material (puede emitirse varias veces por kill).
 signal material_added(material: MaterialData, count: int)
@@ -76,7 +79,11 @@ func equip(item: ItemData) -> void:
 	if not _items.has(item):
 		to_equip = add_item(item)
 	# Si ya había algo en ese slot, queda en el inventario (no se elimina).
+	# A4: avisar del item anterior antes de pisarlo (la pieza nueva llega por equipped_changed).
+	var prev_item: ItemData = _equipped.get(to_equip.slot, null)
 	_equipped[to_equip.slot] = to_equip
+	if prev_item != null and prev_item != to_equip:
+		unequipped.emit(to_equip.slot, prev_item)
 	equipped_changed.emit(to_equip.slot, to_equip)
 
 
@@ -255,17 +262,26 @@ func _serialize_item(item: ItemData) -> Dictionary:
 ## Si el .tres base no existe (el jugador cambió la versión del juego), retorna null con warning.
 func _deserialize_item(item_dict: Dictionary) -> ItemData:
 	var base_path: String = item_dict.get("base_path", "")
-	if base_path == "":
-		push_warning("InventorySystem._deserialize_item: base_path vacío, saltando item.")
-		return null
+	var base_id: StringName = StringName(str(item_dict.get("base_id", "")))
 
-	if not ResourceLoader.exists(base_path):
-		push_warning("InventorySystem._deserialize_item: '%s' no existe. Item perdido." % base_path)
-		return null
+	# Intentar cargar por base_path (camino feliz).
+	var base: ItemData = null
+	if base_path != "" and ResourceLoader.exists(base_path):
+		base = load(base_path) as ItemData
 
-	var base: ItemData = load(base_path) as ItemData
+	# A9: fallback por base_id si el path no resolvió (el .tres se movió/renombró).
+	# Escaneamos resources/items/ por id en vez de perder el item.
+	if base == null and base_id != &"":
+		var found_path: String = _resolve_item_path_by_id(base_id)
+		if found_path != "":
+			base = load(found_path) as ItemData
+			if base != null:
+				push_warning("InventorySystem._deserialize_item: '%s' no resolvió por path, recuperado por base_id '%s'." \
+					% [base_path, base_id])
+
 	if base == null:
-		push_warning("InventorySystem._deserialize_item: '%s' no se pudo cargar como ItemData." % base_path)
+		push_warning("InventorySystem._deserialize_item: no se pudo resolver item (path='%s', base_id='%s'). Item perdido." \
+			% [base_path, base_id])
 		return null
 
 	var instance: ItemData = base.duplicate(true) as ItemData
@@ -298,3 +314,42 @@ func _find_equipped_slot(item: ItemData) -> int:
 		if _equipped[slot] == item:
 			return slot
 	return -1
+
+
+## A9: índice id → path de items, construido de forma perezosa la primera vez que
+## un deserialize necesita el fallback. Cachea para no re-escanear en cada item.
+var _item_path_index: Dictionary = {}
+var _item_index_built: bool = false
+
+
+## Resuelve el path de un .tres de item por su id, escaneando resources/items/.
+## Devuelve "" si no se encuentra. Usado como fallback de _deserialize_item (A9).
+func _resolve_item_path_by_id(target_id: StringName) -> String:
+	if not _item_index_built:
+		_build_item_path_index("res://resources/items")
+		_item_index_built = true
+	return _item_path_index.get(target_id, "")
+
+
+## Escanea recursivamente `dir_path` y llena _item_path_index con id → path
+## por cada .tres que cargue como ItemData con id no vacío.
+func _build_item_path_index(dir_path: String) -> void:
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var file_name: String = dir.get_next()
+	while file_name != "":
+		var full_path: String = dir_path.path_join(file_name)
+		if dir.current_is_dir():
+			# Recursión en subcarpetas (armor/, shields/, weapons/, etc.).
+			if file_name != "." and file_name != "..":
+				_build_item_path_index(full_path)
+		elif file_name.ends_with(".tres"):
+			var res: ItemData = load(full_path) as ItemData
+			if res != null and res.id != &"":
+				# Primer match gana — no pisar si el id ya está indexado.
+				if not _item_path_index.has(res.id):
+					_item_path_index[res.id] = full_path
+		file_name = dir.get_next()
+	dir.list_dir_end()

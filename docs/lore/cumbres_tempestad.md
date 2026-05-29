@@ -1,11 +1,13 @@
 # Cumbres de la Tempestad — Lore de zona
 
 **Zona:** 4
-**Elemento dominante:** Viento + Luz (dual)
+**Elemento dominante:** Viento
 **Rango de nivel:** 25-30 (cap MVP)
 **Mini-boss (Etapa 3):** Capitán de los Vientos
-**Boss final:** Vael, el Señor de la Luz Cegadora
+**Boss final:** Vael, el Operador del Faro
 **Materiales únicos:** Pluma de Tormenta, Fragmento de Cielo Roto, Núcleo Fulgurante (+ Piedras de Resonancia universales)
+
+> **Reframe v3.0 (PROPUESTA, expansión 7 zonas):** Vael deja de ser dual VIENTO+LUZ. Se reencuadra como **VIENTO puro + operador del faro** — el que *proyectaba* luz hacia un destinatario que vive más arriba/afuera, no el portador de la luz ofensiva. La carga LUZ se **canoniza en Z6, [El Faro del Cenit](faro_del_cenit.md)** (zona nueva, su destinatario). Esto es ajuste de promoción a GDD v3.0; el GDD vigente sigue siendo v2.2. Las líneas tocadas: header (elemento + título de Vael) y la sección "Vael" abajo. El resto de la zona queda intacto.
 
 ---
 
@@ -37,17 +39,17 @@ Tres motivaciones, en orden de importancia para diferentes tipos de jugador:
 
 ## Vael
 
-**Vael es el último sumo sacerdote del orden de los portadores de luz.** Y es el único enemy del juego que **sabe lo que es**.
+**Vael es el último sumo sacerdote del orden de los portadores de luz — pero su poder en las Cumbres es VIENTO, no luz.** (Reframe v3.0: la carga LUZ se canoniza en [El Faro del Cenit](faro_del_cenit.md), Z6. Acá Vael es VIENTO + operador del faro: el que *proyecta* la señal, no el que pelea con luz.) Y es el único enemy del juego que **sabe lo que es**.
 
 Los Vigías Rotos del Valle no saben que están rotos. Las Náyades del Acueducto no saben que están atrapadas. Ignis no sabe que está demente. Lyss sabe que está cautiva, pero no sabe qué pasó afuera de su cámara durante los siglos.
 
-**Vael sabe.** Cuando el imperio cayó, él estaba en la torre principal de las Cumbres. Vio descender al Valle, vio cerrarse al Acueducto, vio extinguirse a la Fragua y volver a encenderse. **Vio todo**. Y siguió siendo el portador de luz hasta hoy — proyectando destellos al vacío, sin destinatarios, esperando una señal de vuelta que nunca llegó.
+**Vael sabe.** Cuando el imperio cayó, él estaba en la torre principal de las Cumbres. Vio descender al Valle, vio cerrarse al Acueducto, vio extinguirse a la Fragua y volver a encenderse. **Vio todo**. Y siguió **operando el faro** hasta hoy — proyectando destellos hacia arriba, hacia un destinatario que él creía perdido. (Reframe v3.0: ese destinatario existe y le respondía — es el boss de [El Faro del Cenit](faro_del_cenit.md), Z6. Vael nunca lo supo. El forastero lo descubre una zona después.)
 
-Sus patrones no son rituales rotos. **Son rituales completados**. La **Ráfaga Arcana** (3 dardos de luz) es el saludo ceremonial de su orden. La **Lanza de Luz Penetrante** (laser tracking 2s) es la proyección de su faro en formato ofensivo — la luz que iluminaba caminos ahora corta lo que se mueve. La **Patada Frontal** (knockback fuerte) es la primera vez en el juego que un boss usa **fuerza física directa**: Vael **rechaza** al guerrero, no porque sea amenaza, sino porque el guerrero **interrumpe la ceremonia**.
+Sus patrones no son rituales rotos. **Son rituales completados** — y son **VIENTO**, la fuerza de las Cumbres, no luz. La **Ráfaga Arcana** (3 dardos) es el saludo ceremonial de su orden. La **Lanza Penetrante** (laser tracking 2s) es su faro *apuntado* — el haz que señalaba caminos, ahora corta lo que se mueve (es el gesto del faro, no el elemento LUZ: esa carga vive en Z6). La **Patada Frontal** (knockback fuerte) es la primera vez en el juego que un boss usa **fuerza física directa**: Vael **rechaza** al guerrero, no porque sea amenaza, sino porque el guerrero **interrumpe la ceremonia**.
 
 Su arena es **una plataforma flotante sin paredes**. Caerse mata. Vael no tiene la intención de tirar al guerrero — **el espacio lo hace solo**. La sala es así porque las Cumbres son así. No hay protección. Hay altitud.
 
-Cuando Vael cae, **el destello del faro principal se apaga**. Es la primera vez en siglos. Los jugadores que entran a las Cumbres después del primer kill de Vael lo notan: las torres ya no titilan en la distancia. **El cielo está más oscuro.**
+Cuando Vael cae, **el destello del faro principal se apaga**. Es la primera vez en siglos. Los jugadores que entran a las Cumbres después del primer kill de Vael lo notan: las torres ya no titilan en la distancia. **El cielo está más oscuro.** (Reframe v3.0: este apagado tiene consecuencia en Z6 — el destinatario del faro deja de recibir respuesta. Ver [El Faro del Cenit](faro_del_cenit.md).)
 
 ## El Capitán de los Vientos
 

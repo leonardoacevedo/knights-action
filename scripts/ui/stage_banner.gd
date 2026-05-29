@@ -161,15 +161,17 @@ func _on_stage_pending(data: StageData, index: int) -> void:
 	_subtitle_label.text = data.subtitle
 	_hint_label.text = "Equipá desde la mochila (tecla I) antes de empezar."
 
-	if data.is_boss:
-		_title_label.add_theme_font_size_override("font_size", FONT_SIZE_TITLE_BOSS)
-		_title_label.add_theme_color_override("font_color", COLOR_BOSS)
-		_index_label.text = "BOSS — ETAPA %d / %d" % [index + 1, StageManager.total_stages()]
-	elif data.is_mini_boss:
+	# Mini-boss tiene prioridad de label sobre boss: si un stage marcara ambos flags
+	# en true, debe ganar "MINI-BOSS". Por eso se chequea is_mini_boss primero.
+	if data.is_mini_boss:
 		# Mini-boss tier (R3 elite intermedio). Tamaño + color entre normal y boss.
 		_title_label.add_theme_font_size_override("font_size", FONT_SIZE_TITLE_BOSS - 8)
 		_title_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4, 1.0))
 		_index_label.text = "MINI-BOSS — ETAPA %d / %d" % [index + 1, StageManager.total_stages()]
+	elif data.is_boss:
+		_title_label.add_theme_font_size_override("font_size", FONT_SIZE_TITLE_BOSS)
+		_title_label.add_theme_color_override("font_color", COLOR_BOSS)
+		_index_label.text = "BOSS — ETAPA %d / %d" % [index + 1, StageManager.total_stages()]
 	else:
 		_title_label.add_theme_font_size_override("font_size", FONT_SIZE_TITLE_NORMAL)
 		_title_label.add_theme_color_override("font_color", COLOR_NORMAL)

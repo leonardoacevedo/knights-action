@@ -102,15 +102,18 @@ func _press() -> void:
 	if _is_pressed:
 		return
 	_is_pressed = true
+	# Si la action ya estaba activa (tecla física, o touch emulado desde mouse con
+	# emulate_touch_from_mouse=true que dispara mouse + touch a la vez), NO re-inyectar
+	# el InputEventAction sintético: evita el doble disparo (A11).
+	var already_active: bool = Input.is_action_pressed(action_name)
 	Input.action_press(action_name)
-	# Además del state de la action, parsear un InputEventAction sintético para
-	# que listeners que usan _input() con event.is_action_pressed() (ej.
-	# InventoryScreen) reciban el toggle. Sin esto, solo los listeners que
-	# pollean Input.is_action_pressed() en _process se enteran.
-	var ev: InputEventAction = InputEventAction.new()
-	ev.action = action_name
-	ev.pressed = true
-	Input.parse_input_event(ev)
+	# Solo parsear un InputEventAction sintético si no había otra fuente activa, para
+	# que listeners que usan _input() con event.is_action_pressed() reciban el toggle.
+	if not already_active:
+		var ev: InputEventAction = InputEventAction.new()
+		ev.action = action_name
+		ev.pressed = true
+		Input.parse_input_event(ev)
 	button_pressed.emit()
 	queue_redraw()
 

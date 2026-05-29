@@ -22,6 +22,10 @@ extends Node
 ## La UI escucha esto para mostrar la loot card (T21, ux-mobile).
 signal items_dropped(items: Array[ItemData])
 
+## A7: emitido cuando un material dropeado no entra completo por tope de stack.
+## `lost` es la cantidad que se perdió (count solicitado − cantidad realmente agregada).
+signal material_overflow(material: MaterialData, lost: int)
+
 
 # ─── Estado interno ───────────────────────────────────────────────────────────
 
@@ -84,7 +88,13 @@ func _on_enemy_died(enemy: Node) -> void:
 	for result in results:
 		var material: MaterialData = result["data"]
 		var count: int = result["count"]
-		InventorySystem.add_material(material, count)
+		# A7: add_material devuelve cuánto entró realmente (puede ser < count por tope de stack).
+		var added: int = InventorySystem.add_material(material, count)
+		if added < count:
+			var lost: int = count - added
+			push_warning("DropSystem: overflow de material '%s' — %d perdidos (stack lleno)." \
+				% [material.id, lost])
+			material_overflow.emit(material, lost)
 
 
 func _on_enemy_tree_exited(enemy: Node) -> void:

@@ -40,6 +40,9 @@ var _duration_timer: float = 0.0
 var _cooldown_timer: float = 0.0
 ## Flag: ya activamos el reset de cooldown en este dash (evitar doble-reset).
 var _agua_reset_triggered: bool = false
+## Estado de invuln del hurtbox previo al dash. Se restaura en _end_dash para no
+## pisar otras fuentes de invulnerabilidad (fix A3).
+var _prev_invuln: bool = false
 
 
 func _process(delta: float) -> void:
@@ -51,9 +54,11 @@ func _process(delta: float) -> void:
 		if _duration_timer <= 0.0:
 			_end_dash()
 
-	if not can_dash and not is_dashing:
+	# fix M3: el cooldown corre siempre que > 0 (también durante is_dashing), pero
+	# can_dash solo se rehabilita fuera del dash (no permitir re-dash mid-dash).
+	if not can_dash and _cooldown_timer > 0.0:
 		_cooldown_timer -= delta
-		if _cooldown_timer <= 0.0:
+		if _cooldown_timer <= 0.0 and not is_dashing:
 			can_dash = true
 			cooldown_finished.emit()
 
@@ -69,6 +74,8 @@ func try_dash(direction: int) -> bool:
 	_duration_timer = dash_duration * iframes_mult
 	_cooldown_timer = cooldown * dash_cooldown_mult
 	if hurtbox != null:
+		# fix A3: guardar invuln previo para restaurarlo al terminar (no forzar false).
+		_prev_invuln = hurtbox.invulnerable
 		hurtbox.set_invulnerable(true)
 	dash_started.emit()
 	return true
@@ -77,7 +84,13 @@ func try_dash(direction: int) -> bool:
 func _end_dash() -> void:
 	is_dashing = false
 	if hurtbox != null:
-		hurtbox.set_invulnerable(false)
+		# fix A3: restaurar el invuln que había antes del dash en vez de forzar false.
+		hurtbox.set_invulnerable(_prev_invuln)
+	# fix M3: si el cooldown ya expiró mientras dasheábamos, rehabilitar dash ahora
+	# (el gate `not is_dashing` del _process lo dejó pendiente).
+	if not can_dash and _cooldown_timer <= 0.0:
+		can_dash = true
+		cooldown_finished.emit()
 	dash_ended.emit()
 
 

@@ -13,7 +13,7 @@
 size = Vector2(32, 108)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_boss_hit"]
-size = Vector2(72, 54)
+size = Vector2(100, 62)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_boss_hurt"]
 size = Vector2(44, 112)
@@ -43,7 +43,7 @@ signature_weapon = 1
 ; que el flip de _face_target (abs(hitbox.position.x)*facing en enemy.gd:533)
 ; siga funcionando — el shape queda centrado en (0,0) local al Area2D.
 [node name="Hitbox" parent="." index="3"]
-position = Vector2(50, -50)
+position = Vector2(60, -50)
 
 [node name="HitboxShape" parent="Hitbox" index="0"]
 shape = SubResource("RectangleShape2D_boss_hit")

@@ -1958,6 +1958,7 @@ func _enter_r2_skill_attack() -> void:
 			# Daño con multiplicador (reutiliza SKILL_DAMAGE_MULT).
 			hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
 				* SKILL_DAMAGE_MULT))
+			hitbox.clear_swing_shape()  # fix C6: usar hitbox rectangular legacy, limpiar swing residual
 			hitbox.set_active(true)  # hitbox activo todo el dash
 
 		GameConfig.EnemyClass.ARCHER:
@@ -2060,6 +2061,7 @@ func _tick_r2_skill_attack() -> void:
 ## Termina el ciclo R2 skill: resetea cooldown y vuelve a RECOVERY.
 func _finish_r2_skill() -> void:
 	hitbox.set_active(false)
+	hitbox.clear_swing_shape()  # fix C6: limpiar shape de swing al terminar skill R2
 	_skill_r2_fired = false
 	_skill_r2_cooldown = randf_range(_r2_cd_min(), _r2_cd_max())
 	# Restaurar daño normal si clase melee o mage lo modificó.
@@ -2082,6 +2084,7 @@ var _r2_tajo_hit_count: int = 0  # 0=pre-hit1, 1=post-hit1 gap, 2=post-hit2
 func _enter_r2_giratorio() -> void:
 	hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
 		* _r2_skill_data.damage_mult))
+	hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy, sin swing residual
 	hitbox.set_active(true)
 	_r2_giratorio_tick_accum = 0.0
 
@@ -2100,6 +2103,7 @@ func _tick_r2_giratorio(r2_duration: float) -> void:
 func _enter_r2_tajo_doble() -> void:
 	hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
 		* _r2_skill_data.damage_mult))
+	hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy, sin swing residual
 	hitbox.set_active(true)  # hit 1 inmediato
 	_r2_tajo_hit_count = 1
 
@@ -2114,6 +2118,7 @@ func _tick_r2_tajo_doble(r2_duration: float) -> void:
 		hitbox.set_active(false)
 		_r2_tajo_hit_count = 2  # esperar al gap
 	if _r2_tajo_hit_count == 2 and _state_timer >= hit2_start:
+		hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy en hit 2
 		hitbox.set_active(true)  # hit 2
 		_r2_tajo_hit_count = 3
 	if _r2_tajo_hit_count == 3 and _state_timer >= hit2_end:
@@ -2127,6 +2132,7 @@ func _tick_r2_tajo_doble(r2_duration: float) -> void:
 func _enter_r2_patada() -> void:
 	hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
 		* _r2_skill_data.damage_mult))
+	hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy, sin swing residual
 	hitbox.set_active(true)
 
 
@@ -2199,7 +2205,7 @@ func _tick_r2_salto_asalto(r2_duration: float) -> void:
 			var kb_dir: int = -1 if _target.global_position.x < global_position.x else 1
 			_target.apply_external_velocity(Vector2(float(kb_dir) * kb_x, kb_y))
 		if CameraShake != null:
-			CameraShake.shake(0.15, 8.0)
+			CameraShake.shake(8.0, 0.15)
 	if _state_timer >= r2_duration:
 		_finish_r2_skill()
 
@@ -2393,6 +2399,7 @@ func _spawn_r2_rafaga_projectile() -> void:
 func _enter_r2_gancho_ascendente() -> void:
 	hitbox.damage = int(round(float(GameConfig.enemy_damage_with_rarity(enemy_class, rarity)) \
 		* _r2_skill_data.damage_mult))
+	hitbox.clear_swing_shape()  # fix C6: hitbox rectangular legacy, sin swing residual
 	hitbox.set_active(true)
 
 

@@ -143,7 +143,7 @@ func _enter_phase_2() -> void:
 	if sprite != null:
 		sprite.body_color = Color(1.2, 0.20, 0.05, 1.0)
 	if CameraShake != null:
-		CameraShake.shake(0.35, 14.0)
+		CameraShake.shake(14.0, 0.35)
 
 
 # ─── State machine override ──────────────────────────────────────────────────
@@ -227,6 +227,7 @@ func _change_to_boss_state(new_state: int) -> void:
 
 
 func _tick_boss_state(delta: float) -> void:
+	_state_timer += delta  # fix C2: el timer no avanzaba en estados boss (early-return evita super)
 	match state:
 		BOSS_STATE_HAMMER_WINDUP:
 			velocity.x = 0.0
@@ -328,7 +329,7 @@ func _enter_salto_land() -> void:
 	_spawn_lava_at(global_position)
 	# Screen shake.
 	if CameraShake != null:
-		CameraShake.shake(0.25, 10.0)
+		CameraShake.shake(10.0, 0.25)
 
 
 func _spawn_lava_at(pos: Vector2) -> void:

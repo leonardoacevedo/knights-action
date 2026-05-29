@@ -302,7 +302,12 @@ func _process_skill_cooldowns(delta: float) -> void:
 			overlay.anchor_bottom = 0.0
 			continue
 		# Overlay shrinks from full → empty: anchor_bottom = t (remaining ratio).
-		var t: float = _skill_cd_remaining[i] / max(_skill_cd_total[i], 0.001)
+		# Si no hay cooldown total, overlay vacío (evita el flash full de 1 frame, M6).
+		var t: float
+		if _skill_cd_total[i] <= 0.0:
+			t = 0.0
+		else:
+			t = _skill_cd_remaining[i] / _skill_cd_total[i]
 		overlay.anchor_bottom = clamp(t, 0.0, 1.0)
 
 
@@ -663,9 +668,13 @@ func _update_stage_label() -> void:
 	var zone: int = StageManager.current_zone if StageManager != null else 1
 	var idx: int = StageManager.current_index() if StageManager != null else 0
 	var total: int = StageManager.total_stages() if StageManager != null else 1
+	# Sin run activa (idx < 0): no mintamos "Etapa 1/1", mostrar guion (M15).
+	if idx < 0:
+		_stage_label.text = "—"
+		return
 	var zone_name: String = _zone_display_name(zone)
 	# Display 1-based.
-	var stage_n: int = max(idx + 1, 1)
+	var stage_n: int = idx + 1
 	_stage_label.text = "Mundo %d: %s — Etapa %d/%d" % [zone, zone_name, stage_n, total]
 
 
@@ -785,23 +794,32 @@ func _on_stage_cleared_enemy_info(_index: int) -> void:
 func _pick_tracked_enemy(data: StageData) -> void:
 	if data == null:
 		return
-	# Buscar el enemy R2+ del stage. Boss override = forzar mostrar.
+	var best: Node = _find_best_r2_enemy(null)
+	if best == null:
+		_hide_enemy_info()
+		return
+	_track_enemy(best)
+
+
+## Busca el enemy R2+ vivo de mayor rareza en el grupo "enemy".
+## `exclude`: nodo a ignorar (ej. el tracked que acaba de morir). Devuelve null si no queda ninguno.
+func _find_best_r2_enemy(exclude: Node) -> Node:
 	var best: Node = null
 	var best_rarity: int = -1
 	for child in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(child):
 			continue
-		if not child.has_method("_implicit_weapon_visual_type"):
-			# Sólo enemies con la API de Enemy (descarta proyectiles/etc).
-			pass
+		if child == exclude:
+			continue
+		# Descartar el que ya está muerto (su HealthComponent reporta <= 0).
+		var h: Node = child.get_node_or_null("HealthComponent")
+		if h != null and h.get("current_health") != null and int(h.get("current_health")) <= 0:
+			continue
 		var r: int = int(child.get("rarity")) if child.get("rarity") != null else 0
 		if r >= 1 and r > best_rarity:  # R2 = enum value 1
 			best = child
 			best_rarity = r
-	if best == null:
-		_hide_enemy_info()
-		return
-	_track_enemy(best)
+	return best
 
 
 func _track_enemy(enemy: Node) -> void:
@@ -855,7 +873,14 @@ func _on_tracked_enemy_hp_changed(current: Variant, maximum: Variant) -> void:
 
 
 func _on_tracked_enemy_died() -> void:
-	_hide_enemy_info()
+	# Al morir el tracked, buscar el siguiente R2+ vivo (excluyendo el que murió).
+	# Si no queda ninguno, recién ahí ocultar el panel (A12).
+	var died: Node = _tracked_enemy
+	var next: Node = _find_best_r2_enemy(died)
+	if next != null:
+		_track_enemy(next)
+	else:
+		_hide_enemy_info()
 
 
 func _hide_enemy_info() -> void:
@@ -876,7 +901,7 @@ func _enemy_display_name(enemy: Node) -> String:
 	if nm.begins_with("Enemy"):
 		var cls: int = int(enemy.get("enemy_class")) if enemy.get("enemy_class") != null else 0
 		var rar: int = int(enemy.get("rarity")) if enemy.get("rarity") != null else 0
-		var class_name_str: String = ["Guerrero", "Tanque", "Arquero", "Mago"][cls] if cls < 4 else "Enemigo"
+		var class_name_str: String = (["Guerrero", "Tanque", "Arquero", "Mago"][cls] if cls < 4 else "Enemigo")
 		var rar_str: String = "R" + str(rar + 1)
 		nm = class_name_str + " " + rar_str
 	return nm
@@ -888,7 +913,8 @@ func _enemy_portrait_id(enemy: Node) -> String:
 		return nm
 	# Fallback enemy_class id.
 	var cls: int = int(enemy.get("enemy_class")) if enemy.get("enemy_class") != null else 0
-	return "enemy_" + ["melee", "tank", "archer", "mage"][cls] if cls < 4 else "enemy_unknown"
+	# Parentizar para que el índice solo se evalúe cuando cls < 4 (evita IndexError, M4).
+	return "enemy_" + (["melee", "tank", "archer", "mage"][cls] if cls < 4 else "unknown")
 
 
 func _rarity_display(rarity: int) -> String:

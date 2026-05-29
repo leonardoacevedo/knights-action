@@ -65,7 +65,7 @@ Pendiente en `docs/features/phase_2_retrospective.md`.
 - Parallax de la zona, sprites de los 3 enemigos y boss.
 - Música de zona (1 track) y de combate.
 - **Sistema de Oro** (placeholder en refinamiento/crafteo — implementar real).
-- **Pool items R3 completo** (falta armor R3 y escudo R3).
+- **Pool items R3 completo** — ✅ completado. Armor R3 + escudo R3 cubren NEUTRO + los 6 elementos (batch 28/05); maza TIERRA R3 (`maza_granito`) agregada 29/05. Único faltante histórico cerrado.
 
 ### Estado actual (26/05/2026) — recién abierta
 - ⏹ Árbol de Skills (sistema más diferenciador del RPG, define progresión vertical).
@@ -73,7 +73,7 @@ Pendiente en `docs/features/phase_2_retrospective.md`.
 - ⏹ Set Bonuses (depende de elementos).
 - ⏹ Completar zona 1 (2-4 stages más).
 - ⏹ Sistema de Oro.
-- ⏹ Pool R3 completo.
+- ✅ Pool R3 completo (armor + escudo todos los elementos; maza TIERRA agregada 29/05).
 - ⏹ Arte / sprites IA (delegar a `art-prompt-engineer`).
 - ⏹ Audio pipeline + 2 tracks iniciales.
 - ⏳ Decidir orden de implementación con Leo.

@@ -53,7 +53,11 @@ func _ready() -> void:
 	collision_layer = 0b1000     # bit 4 (Hitbox)
 	collision_mask = 0b10000     # bit 5 (detecta Hurtbox)
 	monitoring = true
-	monitorable = false
+	# fix C5: monitorable=true para que la query de "Muralla Estática" de Lyss
+	# (intersect_shape sobre la capa Hitbox) detecte los proyectiles del player.
+	# No afecta nuestra propia detección (monitoring + area_entered) — las hurtboxes
+	# son monitoring=false, así que no nos detectan ni reaccionan.
+	monitorable = true
 	area_entered.connect(_on_area_entered)
 	# Trail de estela para flechas perforadoras. Se construye después de entrar al árbol
 	# porque necesitamos add_child al current_scene (coordenadas globales).
@@ -205,10 +209,12 @@ static func _apply_aoe_damage(pos: Vector2, radius: float, dmg: int,
 		if not h is HurtboxComponent:
 			continue
 		var hb: HurtboxComponent = h as HurtboxComponent
-		if hb.team == src_team:
-			continue  # no dañar aliados
+		# fix A10: validar ANTES de tocar cualquier propiedad (el target pudo morir
+		# durante el telegraph → nodo liberado).
 		if not is_instance_valid(hb):
 			continue
+		if hb.team == src_team:
+			continue  # no dañar aliados
 		if hb.global_position.distance_to(pos) <= radius:
 			var elem_mult: float = GameConfig.element_modifier(src_elem, hb.element)
 			var final_dmg: int = int(round(float(dmg) * elem_mult))

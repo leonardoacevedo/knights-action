@@ -153,7 +153,7 @@ func _enter_phase_2() -> void:
 	if sprite != null:
 		sprite.body_color = Color(0.20, 0.40, 1.0, 1.0)
 	if CameraShake != null:
-		CameraShake.shake(0.25, 10.0)
+		CameraShake.shake(10.0, 0.25)
 
 
 # ─── Override de gravedad: la cazadora flota, sin caída ──────────────────────

@@ -128,7 +128,7 @@ func _enter_phase_2() -> void:
 	if sprite != null:
 		sprite.body_color = Color(0.55, 0.10, 0.85, 1.0)
 	if CameraShake != null:
-		CameraShake.shake(0.35, 14.0)
+		CameraShake.shake(14.0, 0.35)
 	# Eco Eterno: spawn de los 2 hazards permanentes.
 	if not _eco_eterno_spawned:
 		_spawn_eco_eterno()
@@ -209,7 +209,7 @@ func _change_to_boss_state(new_state: int) -> void:
 		BOSS_STATE_ONDA_ACTIVE:
 			_apply_onda_damage()
 			if CameraShake != null:
-				CameraShake.shake(0.30, 12.0)
+				CameraShake.shake(12.0, 0.30)
 
 		BOSS_STATE_METEOROS_WINDUP:
 			sprite.start_telegraph(METEOROS_WINDUP)

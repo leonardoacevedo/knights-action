@@ -138,7 +138,7 @@ func _enter_phase_2() -> void:
 	if sprite != null:
 		sprite.body_color = Color(1.15, 1.0, 0.55, 1.0)
 	if CameraShake != null:
-		CameraShake.shake(0.30, 12.0)
+		CameraShake.shake(12.0, 0.30)
 
 
 # ─── State machine override ──────────────────────────────────────────────────
@@ -221,6 +221,7 @@ func _change_to_boss_state(new_state: int) -> void:
 
 
 func _tick_boss_state(delta: float) -> void:
+	_state_timer += delta  # fix C2: el timer no avanzaba en estados boss (early-return evita super)
 	match state:
 		BOSS_STATE_RAFAGA_WINDUP:
 			velocity.x = 0.0
@@ -398,7 +399,7 @@ func _apply_salto_landing() -> void:
 				if se != null:
 					se.apply(stun_data, self)
 	if CameraShake != null:
-		CameraShake.shake(0.20, 10.0)
+		CameraShake.shake(10.0, 0.20)
 
 
 # ─── Lanza de Luz Penetrante (F2) ───────────────────────────────────────────
@@ -458,3 +459,12 @@ func _apply_lanza_tick_damage() -> void:
 			if hb.team == team:
 				continue
 			hb.receive_hit(dmg, null, 0)
+
+
+## Override: liberar la Line2D de la Lanza de Luz si el boss muere mid-skill.
+## Vive en current_scene (no es hijo del boss) → no se libera solo. fix A1.
+func _on_died() -> void:
+	if is_instance_valid(_lanza_line):
+		_lanza_line.queue_free()
+	_lanza_line = null
+	super._on_died()

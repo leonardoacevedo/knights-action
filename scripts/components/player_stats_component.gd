@@ -263,13 +263,18 @@ func _apply_set_bonus(weapon: ItemData, armor: ItemData, shield: ItemData) -> vo
 	_update_luz_passive_regen(luz_hp_regen)
 
 	# ── 2pc: VIENTO bump move_speed_mult ────────────────────────────────────
-	# Aplica sobre el move_speed_mult ya seteado en _apply_movement_skills.
-	# _apply_set_bonus corre DESPUÉS de _apply_movement_skills en recalculate().
-	# Acá hacemos un segundo pase multiplicativo sobre player.move_speed_mult.
+	# BUG M13 (NO resuelto acá — requiere refactor del orden de recalculate()):
+	# el comentario de abajo asume que _apply_set_bonus corre DESPUÉS de
+	# _apply_movement_skills, pero en recalculate() el orden REAL es al revés
+	# (_apply_set_bonus línea 79, _apply_movement_skills línea 83). Por eso este
+	# multiplicador se aplica sobre un move_speed_mult viejo y luego
+	# _apply_movement_skills lo pisa con (1 + MOVE_SPEED_PCT), perdiendo el bonus VIENTO.
+	# No se puede arreglar moviendo la llamada: _apply_furia_skills DEPENDE de que
+	# _apply_set_bonus corra ANTES (stack de regen AGUA 2pc). Fix correcto = separar
+	# la aplicación del set bonus o aplicar VIENTO dentro de _apply_movement_skills.
 	if data.viento_move_speed_pct_2pc != 0.0 and pieces >= 2:
 		var player: Node = get_parent()
 		if player != null and player.has_method("set_move_speed_mult"):
-			# player.move_speed_mult ya fue seteado por _apply_movement_skills al valor de skill.
 			# Multiplicamos encima: skill_mult × (1 + set_bonus_pct).
 			var current_mult: float = float(player.get("move_speed_mult")) if player.get("move_speed_mult") != null else 1.0
 			player.set_move_speed_mult(current_mult * (1.0 + data.viento_move_speed_pct_2pc))

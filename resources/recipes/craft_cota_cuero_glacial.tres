@@ -1,13 +1,12 @@
 [gd_resource type="Resource" script_class="CraftRecipe" load_steps=6 format=3]
 
-; Glacial set proxy — reusa cota_cuero como output (no se creó item dedicado todavía).
-; Cuando se forjen items zona 3 dedicados, cambiar output a manto_glacial nuevo.
+; Receta de la Cota Glacial (armadura AGUA zona 3). Output dedicado: cota_glacial.tres.
 
 [ext_resource type="Script" path="res://scripts/data/craft_recipe.gd" id="1_recipe"]
 [ext_resource type="Script" path="res://scripts/data/craft_recipe_input.gd" id="2_input"]
 [ext_resource type="Resource" path="res://resources/materials/gota_lamento.tres" id="3_gota"]
 [ext_resource type="Resource" path="res://resources/materials/cristal_escarcha.tres" id="4_cristal"]
-[ext_resource type="Resource" path="res://resources/items/armor/cota_cuero.tres" id="5_output"]
+[ext_resource type="Resource" path="res://resources/items/armor/cota_glacial.tres" id="5_output"]
 
 [sub_resource type="Resource" id="Input_gota"]
 script = ExtResource("2_input")
@@ -23,7 +22,7 @@ count = 4
 script = ExtResource("1_recipe")
 id = &"craft_cota_glacial"
 display_name = "Forjar Cota Glacial"
-description = "Cota tratada con lágrimas del Acueducto. Placeholder zona 3 — reusa cota_cuero base."
+description = "Cota tratada con lágrimas del Acueducto. Aleja el frío del cuerpo del portador y lo lanza al enemigo."
 inputs = [SubResource("Input_gota"), SubResource("Input_cristal")]
 output_item = ExtResource("5_output")
 gold_cost = 380

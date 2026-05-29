@@ -17,7 +17,10 @@ const PORTRAITS_DIR: String = "res://assets/art/portraits/"
 
 ## Returns Texture2D si existe el PNG canon para ese id, sino null.
 func get_portrait(id: StringName) -> Texture2D:
-	var path: String = PORTRAITS_DIR + String(id) + ".png"
+	# Sanitizar el id: separadores y espacios romperían el path apuntando a subfolders
+	# inexistentes sin warning (M5). Reemplazar por "_".
+	var safe_id: String = String(id).replace("/", "_").replace("\\", "_").replace(" ", "_")
+	var path: String = PORTRAITS_DIR + safe_id + ".png"
 	if not ResourceLoader.exists(path):
 		return null
 	var tex: Texture2D = load(path) as Texture2D

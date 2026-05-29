@@ -608,8 +608,13 @@ func _spawn_player_projectile() -> void:
 		return
 	# Spawn point: a la altura del torso/mano frontal, offset hacia el facing.
 	proj.global_position = global_position + Vector2(20.0 * current_facing, -45.0)
-	# Daño final = hitbox.damage (arma + refinamiento) × multiplicador Momentum.
-	var final_damage: int = int(round(float(hitbox.damage) * MomentumSystem.damage_multiplier()))
+	# Daño final = hitbox.damage × los mismos multiplicadores que el melee.
+	# fix C3: hitbox.damage_multiplier ya incluye Momentum + post-dash + Espíritu Marcial
+	# (seteado en _start_attack), y damage_set_bonus_multiplier el set bonus (FUEGO 2pc).
+	# El ranged los ignoraba (solo aplicaba Momentum). El modifier elemental lo calcula
+	# el propio proyectil en su _on_area_entered, igual que el melee con elem_mult.
+	var final_damage: int = int(round(float(hitbox.damage) \
+		* hitbox.damage_multiplier * hitbox.damage_set_bonus_multiplier))
 	# Elemento del arma: ya está en hitbox.element (seteado en _start_attack).
 	proj.launch(Vector2(current_facing, 0.0), final_damage, team, hitbox.element)
 	proj.set_source(self)  # LUZ vampire heal tracking

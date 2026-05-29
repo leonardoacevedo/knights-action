@@ -64,7 +64,7 @@ var ignore_shield: bool = false
 ## visual_type 2 (Bow) y 3 (Staff) excluidos: son ranged, no usan hitbox melee.
 const WEAPON_HITBOX_DEFAULTS: Dictionary = {
 	0: {"reach": 24.0, "width": 14.0, "arc_deg": 100.0, "damage_zone": 1.0},  # NONE (puños)
-	1: {"reach": 50.0, "width": 12.0, "arc_deg": 130.0, "damage_zone": 1.0},  # SWORD
+	1: {"reach": 40.0, "width": 12.0, "arc_deg": 130.0, "damage_zone": 1.0},  # SWORD (reach 50→40 honesto vs hoja visible — tunable in-editor)
 	4: {"reach": 36.0, "width": 26.0, "arc_deg": 110.0, "damage_zone": 0.35}, # HAMMER (solo cabeza)
 }
 
