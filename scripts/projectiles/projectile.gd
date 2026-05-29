@@ -47,6 +47,14 @@ var _pierce_hit_set: Array = []
 ## Line2D de estela (opcional). Se agrega como child del parent cuando se activa pierce.
 var _pierce_trail: Line2D = null
 
+# ── Trail de velocidad (genérico, todos los proyectiles no-pierce) ────────────
+## Line2D corto que se desvanece detrás del proyectil → sensación de velocidad.
+## Barato (≤8 puntos, 1 Line2D). Se OMITE si `pierce_enemies` (esos ya tienen su propio
+## trail dedicado, no duplicar). Vive en current_scene → coordenadas globales (no rota
+## ni se estira con el proyectil). Tinte derivado del elemento (matchea el proyectil).
+var _speed_trail: Line2D = null
+const SPEED_TRAIL_MAX_POINTS: int = 8  # rastro corto. Mobile-friendly.
+
 
 func _ready() -> void:
 	# Mismas layers que Hitbox: nosotros somos un "hitbox volador".
@@ -63,6 +71,9 @@ func _ready() -> void:
 	# porque necesitamos add_child al current_scene (coordenadas globales).
 	if pierce_enemies:
 		call_deferred("_build_pierce_trail")
+	else:
+		# Trail de velocidad genérico para el resto (no duplicar sobre el de pierce).
+		call_deferred("_build_speed_trail")
 
 
 ## Inicializa el proyectil con dirección, daño, team y elemento del shooter.
@@ -142,6 +153,11 @@ func _physics_process(delta: float) -> void:
 		# Máximo 12 puntos — rastro corto, suficiente para feel visual.
 		if _pierce_trail.get_point_count() > 12:
 			_pierce_trail.remove_point(0)
+	# Trail de velocidad genérico (no-pierce). Mismo patrón global-space, rastro más corto.
+	elif _speed_trail != null and is_instance_valid(_speed_trail):
+		_speed_trail.add_point(global_position)
+		if _speed_trail.get_point_count() > SPEED_TRAIL_MAX_POINTS:
+			_speed_trail.remove_point(0)
 	if _time_alive >= lifetime:
 		if aoe_on_impact:
 			_trigger_aoe(global_position)
@@ -262,6 +278,49 @@ func _on_trail_cleanup() -> void:
 	var tween: Tween = _pierce_trail.create_tween()
 	tween.tween_property(_pierce_trail, "modulate:a", 0.0, 0.2)
 	tween.tween_callback(_pierce_trail.queue_free)
+
+
+## Construye la Line2D del trail de velocidad (proyectiles no-pierce).
+## Vive en current_scene (global space) para no rotar/estirarse con el proyectil.
+func _build_speed_trail() -> void:
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	_speed_trail = Line2D.new()
+	_speed_trail.width = 5.0
+	# Tapereo: angosto en la cola, ancho cerca del proyectil → look de cometa.
+	var curve: Curve = Curve.new()
+	curve.add_point(Vector2(0.0, 0.15))  # cola (punto más viejo)
+	curve.add_point(Vector2(1.0, 1.0))   # cabeza (cerca del proyectil)
+	_speed_trail.width_curve = curve
+	_speed_trail.default_color = _trail_color_from_element()
+	_speed_trail.z_index = 1
+	get_tree().current_scene.add_child(_speed_trail)
+	tree_exiting.connect(_on_speed_trail_cleanup)
+
+
+## Fade-out y cleanup del trail de velocidad al destruir el proyectil.
+func _on_speed_trail_cleanup() -> void:
+	if _speed_trail == null or not is_instance_valid(_speed_trail):
+		return
+	var tween: Tween = _speed_trail.create_tween()
+	tween.tween_property(_speed_trail, "modulate:a", 0.0, 0.18)
+	tween.tween_callback(_speed_trail.queue_free)
+
+
+## Color del trail según elemento (matchea el tinte del proyectil), con alpha bajo.
+## Mismo eje que _apply_element_tint pero translúcido para que sea una estela, no un sólido.
+func _trail_color_from_element() -> Color:
+	var c: Color
+	match element:
+		1: c = Color(1.0, 0.5, 0.15, 1.0)   # FUEGO — naranja
+		2: c = Color(0.35, 0.8, 1.0, 1.0)    # AGUA — cyan
+		3: c = Color(0.65, 0.45, 0.25, 1.0)  # TIERRA — marrón
+		4: c = Color(0.75, 1.0, 0.7, 1.0)    # VIENTO — verde-blanco
+		5: c = Color(1.0, 0.9, 0.4, 1.0)     # LUZ — dorado
+		6: c = Color(0.7, 0.4, 1.0, 1.0)     # SOMBRA — violeta
+		_: c = Color(0.9, 0.9, 0.9, 1.0)     # NEUTRO — blanco/gris
+	c.a = 0.45
+	return c
 
 
 # ─── Element → Status synergy (6 elementos canon 27/05, eje cósmico) ────────
